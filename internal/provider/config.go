@@ -11,6 +11,7 @@ import (
 
 	"github.com/taliesins/terraform-provider-hyperv/api"
 	hyperv_winrm "github.com/taliesins/terraform-provider-hyperv/api/hyperv-winrm"
+	ssh_helper "github.com/taliesins/terraform-provider-hyperv/api/ssh-helper"
 
 	"github.com/dylanmei/iso8601"
 	pool "github.com/jolestar/go-commons-pool/v2"
@@ -43,11 +44,79 @@ type Config struct {
 
 	ScriptPath string
 	Timeout    string
+
+	// SSH configuration
+	SSH               bool
+	SSHUser           string
+	SSHPassword       string
+	SSHPrivateKey     string
+	SSHPrivateKeyPath string
+	SSHHost           string
+	SSHPort           int
 }
 
-// HypervWinRmClient() returns a new client for configuring hyperv.
+// Client() returns a new client for configuring hyperv.
 func (c *Config) Client() (comm api.Client, err error) {
-	log.Printf("[INFO][hyperv] HyperV HypervWinRmClient configured for HyperV API operations using:\n"+
+	if c.SSH {
+		return c.getSSHClient()
+	}
+	return c.getWinRMClient()
+}
+
+// getSSHClient creates an SSH-based client
+func (c *Config) getSSHClient() (api.Client, error) {
+	log.Printf("[INFO][hyperv] HyperV SSH Client configured for HyperV API operations using:\n"+
+		"  SSH Host: %s\n"+
+		"  SSH Port: %d\n"+
+		"  SSH User: %s\n"+
+		"  SSH Password: %t\n"+
+		"  SSH PrivateKey: %t\n"+
+		"  SSH PrivateKeyPath: %s\n"+
+		"  Timeout: %s",
+		c.SSHHost,
+		c.SSHPort,
+		c.SSHUser,
+		c.SSHPassword != "",
+		c.SSHPrivateKey != "",
+		c.SSHPrivateKeyPath,
+		c.Timeout,
+	)
+
+	timeoutDuration, err := time.ParseDuration(c.Timeout)
+	if err != nil {
+		return nil, fmt.Errorf("couldn't parse timeout duration \"%s\": %w", c.Timeout, err)
+	}
+
+	sshConfig := &ssh_helper.ClientConfig{
+		Host:           c.SSHHost,
+		Port:           c.SSHPort,
+		User:           c.SSHUser,
+		Password:       c.SSHPassword,
+		PrivateKey:     c.SSHPrivateKey,
+		PrivateKeyPath: c.SSHPrivateKeyPath,
+		Timeout:        timeoutDuration,
+		Vars:           "",
+	}
+
+	sshProvider, err := ssh_helper.New(sshConfig)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create SSH client: %w", err)
+	}
+
+	// Use the SSH client with the hyperv_winrm API layer
+	hyperVProvider, err := hyperv_winrm.New(&hyperv_winrm.ClientConfig{
+		WinRmClient: sshProvider.Client,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return hyperVProvider.Client, nil
+}
+
+// getWinRMClient creates a WinRM-based client (existing logic)
+func (c *Config) getWinRMClient() (api.Client, error) {
+	log.Printf("[INFO][hyperv] HyperV WinRM Client configured for HyperV API operations using:\n"+
 		"  Host: %s\n"+
 		"  Port: %d\n"+
 		"  User: %s\n"+
@@ -85,7 +154,6 @@ func (c *Config) Client() (comm api.Client, err error) {
 	)
 
 	hyperVProvider, err := getHypervProvider(c)
-
 	if err != nil {
 		return nil, err
 	}

@@ -1,8 +1,6 @@
 module github.com/taliesins/terraform-provider-hyperv
 
-go 1.21
-
-toolchain go1.21.6
+go 1.24.0
 
 require (
 	github.com/dylanmei/iso8601 v0.1.0
@@ -12,6 +10,7 @@ require (
 	github.com/jolestar/go-commons-pool/v2 v2.1.2
 	github.com/masterzen/winrm v0.0.0-20220917170901-b07f6cb0598d
 	github.com/segmentio/ksuid v1.0.4
+	golang.org/x/crypto v0.43.0
 )
 
 require (
@@ -79,12 +78,11 @@ require (
 	github.com/yuin/goldmark v1.6.0 // indirect
 	github.com/yuin/goldmark-meta v1.1.0 // indirect
 	github.com/zclconf/go-cty v1.14.2 // indirect
-	golang.org/x/crypto v0.19.0 // indirect
 	golang.org/x/exp v0.0.0-20230626212559-97b1e661b5df // indirect
-	golang.org/x/mod v0.15.0 // indirect
-	golang.org/x/net v0.19.0 // indirect
-	golang.org/x/sys v0.17.0 // indirect
-	golang.org/x/text v0.14.0 // indirect
+	golang.org/x/mod v0.28.0 // indirect
+	golang.org/x/net v0.45.0 // indirect
+	golang.org/x/sys v0.37.0 // indirect
+	golang.org/x/text v0.30.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20231106174013-bbf56f31fb17 // indirect
 	google.golang.org/grpc v1.61.1 // indirect
