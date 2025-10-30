@@ -1,8 +1,20 @@
 package ssh_helper
 
+// SSH Helper for executing commands on remote systems via SSH.
+// Supports both Linux/Unix and Windows remote hosts.
+//
+// For Windows hosts (IsWindows=true):
+// - Uses PowerShell commands (Test-Path, Remove-Item, New-Item, etc.)
+// - Paths use Windows-style backslashes (C:\Temp\...)
+//
+// For Linux/Unix hosts (IsWindows=false):
+// - Uses standard Unix commands (test, rm, mkdir, etc.)
+// - Paths use forward slashes (/tmp/...)
+
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -12,6 +24,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -35,6 +48,7 @@ type ClientConfig struct {
 	ElevatedUser    string
 	ElevatedCommand string // Command to use for privilege escalation (e.g., "sudo", "doas")
 	Vars            string // Environment variables to set
+	IsWindows       bool   // True if remote host is Windows (uses PowerShell instead of bash)
 }
 
 // getSSHClient creates and returns an SSH client connection
@@ -63,7 +77,7 @@ func (c *ClientConfig) getSSHClient() (*ssh.Client, error) {
 			}
 			keyPath = filepath.Join(homeDir, keyPath[2:])
 		}
-		
+
 		keyBytes, err := os.ReadFile(keyPath)
 		if err != nil {
 			return nil, fmt.Errorf("failed to read private key file: %w", err)
@@ -193,7 +207,8 @@ func (c *ClientConfig) RunScriptWithResult(ctx context.Context, script *template
 	return nil
 }
 
-// UploadFile uploads a local file to the remote system via SCP
+// UploadFile uploads a local file to the remote system
+// Tries SFTP first, falls back to writing via PowerShell/shell commands
 func (c *ClientConfig) UploadFile(ctx context.Context, filePath string, remoteFilePath string) (string, error) {
 	client, err := c.getSSHClient()
 	if err != nil {
@@ -209,46 +224,117 @@ func (c *ClientConfig) UploadFile(ctx context.Context, filePath string, remoteFi
 		return "", fmt.Errorf("failed to read local file: %w", err)
 	}
 
-	fileInfo, err := os.Stat(filePath)
-	if err != nil {
-		return "", fmt.Errorf("failed to stat local file: %w", err)
-	}
-
 	// If remote path is a directory or not specified, append the filename
 	if remoteFilePath == "" || strings.HasSuffix(remoteFilePath, "/") {
 		remoteFilePath = filepath.Join(remoteFilePath, filepath.Base(filePath))
 	}
 
-	// Create SCP session
+	// Try SFTP first
+	err = c.uploadViaSFTP(client, fileData, remoteFilePath)
+	if err == nil {
+		log.Printf("[DEBUG] Successfully uploaded file via SFTP to %s", remoteFilePath)
+		return remoteFilePath, nil
+	}
+
+	log.Printf("[DEBUG] SFTP upload failed: %v, trying command-based upload", err)
+
+	// Fallback to command-based upload
+	err = c.uploadViaCommands(client, fileData, remoteFilePath)
+	if err != nil {
+		return "", fmt.Errorf("all upload methods failed: %w", err)
+	}
+
+	log.Printf("[DEBUG] Successfully uploaded file via commands to %s", remoteFilePath)
+	return remoteFilePath, nil
+}
+
+// uploadViaSFTP uploads a file using SFTP protocol
+func (c *ClientConfig) uploadViaSFTP(client *ssh.Client, fileData []byte, remoteFilePath string) error {
+	// Create SFTP client
+	sftpClient, err := sftp.NewClient(client)
+	if err != nil {
+		return fmt.Errorf("failed to create SFTP client: %w", err)
+	}
+	defer sftpClient.Close()
+
+	// Create remote directory if needed
+	remoteDir := filepath.Dir(remoteFilePath)
+	if remoteDir != "" && remoteDir != "." {
+		err = sftpClient.MkdirAll(remoteDir)
+		if err != nil {
+			log.Printf("[DEBUG] Failed to create remote directory via SFTP: %v", err)
+			// Continue anyway, the directory might exist
+		}
+	}
+
+	// Create remote file
+	remoteFile, err := sftpClient.Create(remoteFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to create remote file: %w", err)
+	}
+	defer remoteFile.Close()
+
+	// Write file content
+	_, err = remoteFile.Write(fileData)
+	if err != nil {
+		return fmt.Errorf("failed to write file content: %w", err)
+	}
+
+	return nil
+}
+
+// uploadViaCommands uploads a file by writing it via shell commands
+func (c *ClientConfig) uploadViaCommands(client *ssh.Client, fileData []byte, remoteFilePath string) error {
 	session, err := client.NewSession()
 	if err != nil {
-		return "", fmt.Errorf("failed to create SCP session: %w", err)
+		return fmt.Errorf("failed to create session: %w", err)
 	}
 	defer session.Close()
 
-	// Set up SCP protocol
-	go func() {
-		w, _ := session.StdinPipe()
-		defer w.Close()
+	// Encode file data as base64 for safe transport
+	encoded := base64.StdEncoding.EncodeToString(fileData)
 
-		// Send file header
-		fmt.Fprintf(w, "C%04o %d %s\n", fileInfo.Mode().Perm(), len(fileData), filepath.Base(remoteFilePath))
+	var command string
+	if c.IsWindows {
+		// Use PowerShell to decode base64 and write file
+		// Create directory first
+		remoteDir := filepath.Dir(remoteFilePath)
+		if remoteDir != "" && remoteDir != "." {
+			dirSession, _ := client.NewSession()
+			if dirSession != nil {
+				dirCmd := fmt.Sprintf("powershell -Command \"New-Item -ItemType Directory -Force -Path '%s' | Out-Null\"", remoteDir)
+				dirSession.Run(dirCmd)
+				dirSession.Close()
+			}
+		}
 
-		// Send file content
-		w.Write(fileData)
+		// Write file via PowerShell
+		command = fmt.Sprintf(
+			"powershell -Command \"$bytes = [System.Convert]::FromBase64String('%s'); [System.IO.File]::WriteAllBytes('%s', $bytes)\"",
+			encoded,
+			remoteFilePath,
+		)
+	} else {
+		// Use Unix commands
+		remoteDir := filepath.Dir(remoteFilePath)
+		if remoteDir != "" && remoteDir != "." {
+			dirSession, _ := client.NewSession()
+			if dirSession != nil {
+				dirSession.Run(fmt.Sprintf("mkdir -p '%s'", remoteDir))
+				dirSession.Close()
+			}
+		}
 
-		// Send termination
-		fmt.Fprint(w, "\x00")
-	}()
-
-	// Execute SCP command
-	cmd := fmt.Sprintf("scp -t %s", remoteFilePath)
-	if err := session.Run(cmd); err != nil {
-		return "", fmt.Errorf("SCP upload failed: %w", err)
+		// Write file via base64 decode
+		command = fmt.Sprintf("echo '%s' | base64 -d > '%s'", encoded, remoteFilePath)
 	}
 
-	log.Printf("[DEBUG] Successfully uploaded file to %s", remoteFilePath)
-	return remoteFilePath, nil
+	err = session.Run(command)
+	if err != nil {
+		return fmt.Errorf("failed to execute upload command: %w", err)
+	}
+
+	return nil
 }
 
 // UploadDirectory uploads a local directory to the remote system
@@ -256,7 +342,11 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 	log.Printf("[DEBUG] Uploading directory %s", rootPath)
 
 	// Create a temporary remote directory
-	remoteRootPath = fmt.Sprintf("/tmp/hyperv-upload-%d", time.Now().Unix())
+	if c.IsWindows {
+		remoteRootPath = fmt.Sprintf("C:\\Temp\\hyperv-upload-%d", time.Now().Unix())
+	} else {
+		remoteRootPath = fmt.Sprintf("/tmp/hyperv-upload-%d", time.Now().Unix())
+	}
 
 	client, err := c.getSSHClient()
 	if err != nil {
@@ -270,7 +360,14 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 		return "", nil, fmt.Errorf("failed to create session: %w", err)
 	}
 
-	err = session.Run(fmt.Sprintf("mkdir -p %s", remoteRootPath))
+	var mkdirCmd string
+	if c.IsWindows {
+		mkdirCmd = fmt.Sprintf("powershell -Command \"New-Item -ItemType Directory -Force -Path '%s'\"", remoteRootPath)
+	} else {
+		mkdirCmd = fmt.Sprintf("mkdir -p %s", remoteRootPath)
+	}
+
+	err = session.Run(mkdirCmd)
 	session.Close()
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to create remote directory: %w", err)
@@ -298,15 +395,37 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 		}
 
 		// Upload file
-		remotePath := filepath.Join(remoteRootPath, relPath)
-		remoteDir := filepath.Dir(remotePath)
+		var remotePath string
+		if c.IsWindows {
+			// Convert to Windows path
+			remotePath = filepath.Join(remoteRootPath, relPath)
+			remotePath = filepath.ToSlash(remotePath)              // Convert to forward slashes for consistency
+			remotePath = strings.ReplaceAll(remotePath, "/", "\\") // Then to backslashes for Windows
+		} else {
+			remotePath = filepath.Join(remoteRootPath, relPath)
+		}
+
+		var remoteDir string
+		if c.IsWindows {
+			remoteDir = filepath.Dir(remotePath)
+		} else {
+			remoteDir = filepath.Dir(remotePath)
+		}
 
 		// Create remote directory structure
 		session, err := client.NewSession()
 		if err != nil {
 			return err
 		}
-		session.Run(fmt.Sprintf("mkdir -p %s", remoteDir))
+
+		var mkdirCmd string
+		if c.IsWindows {
+			mkdirCmd = fmt.Sprintf("powershell -Command \"New-Item -ItemType Directory -Force -Path '%s'\"", remoteDir)
+		} else {
+			mkdirCmd = fmt.Sprintf("mkdir -p %s", remoteDir)
+		}
+
+		session.Run(mkdirCmd)
 		session.Close()
 
 		// Upload the file
@@ -331,7 +450,13 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 func (c *ClientConfig) FileExists(ctx context.Context, remoteFilePath string) (bool, error) {
 	log.Printf("[DEBUG] Checking if file exists: %s", remoteFilePath)
 
-	command := fmt.Sprintf("test -f '%s' && echo 'true' || echo 'false'", remoteFilePath)
+	var command string
+	if c.IsWindows {
+		command = fmt.Sprintf("powershell -Command \"Test-Path -Path '%s' -PathType Leaf\"", remoteFilePath)
+	} else {
+		command = fmt.Sprintf("test -f '%s' && echo 'true' || echo 'false'", remoteFilePath)
+	}
+
 	stdout, _, exitCode, err := c.runCommand(ctx, command)
 	if err != nil {
 		return false, err
@@ -341,7 +466,13 @@ func (c *ClientConfig) FileExists(ctx context.Context, remoteFilePath string) (b
 		return false, nil
 	}
 
-	exists := strings.TrimSpace(stdout) == "true"
+	stdout = strings.TrimSpace(stdout)
+	var exists bool
+	if c.IsWindows {
+		exists = strings.EqualFold(stdout, "true")
+	} else {
+		exists = stdout == "true"
+	}
 
 	if exists {
 		log.Printf("[DEBUG] File exists: %s", remoteFilePath)
@@ -356,7 +487,13 @@ func (c *ClientConfig) FileExists(ctx context.Context, remoteFilePath string) (b
 func (c *ClientConfig) DirectoryExists(ctx context.Context, remoteDirectoryPath string) (bool, error) {
 	log.Printf("[DEBUG] Checking if directory exists: %s", remoteDirectoryPath)
 
-	command := fmt.Sprintf("test -d '%s' && echo 'true' || echo 'false'", remoteDirectoryPath)
+	var command string
+	if c.IsWindows {
+		command = fmt.Sprintf("powershell -Command \"Test-Path -Path '%s' -PathType Container\"", remoteDirectoryPath)
+	} else {
+		command = fmt.Sprintf("test -d '%s' && echo 'true' || echo 'false'", remoteDirectoryPath)
+	}
+
 	stdout, _, exitCode, err := c.runCommand(ctx, command)
 	if err != nil {
 		return false, err
@@ -366,7 +503,13 @@ func (c *ClientConfig) DirectoryExists(ctx context.Context, remoteDirectoryPath 
 		return false, nil
 	}
 
-	exists := strings.TrimSpace(stdout) == "true"
+	stdout = strings.TrimSpace(stdout)
+	var exists bool
+	if c.IsWindows {
+		exists = strings.EqualFold(stdout, "true")
+	} else {
+		exists = stdout == "true"
+	}
 
 	if exists {
 		log.Printf("[DEBUG] Directory exists: %s", remoteDirectoryPath)
@@ -381,7 +524,13 @@ func (c *ClientConfig) DirectoryExists(ctx context.Context, remoteDirectoryPath 
 func (c *ClientConfig) DeleteFileOrDirectory(ctx context.Context, remotePath string) error {
 	log.Printf("[DEBUG] Deleting file or directory: %s", remotePath)
 
-	command := fmt.Sprintf("rm -rf '%s'", remotePath)
+	var command string
+	if c.IsWindows {
+		command = fmt.Sprintf("powershell -Command \"Remove-Item -Path '%s' -Recurse -Force -ErrorAction SilentlyContinue\"", remotePath)
+	} else {
+		command = fmt.Sprintf("rm -rf '%s'", remotePath)
+	}
+
 	_, stderr, exitCode, err := c.runCommand(ctx, command)
 	if err != nil {
 		return err

@@ -96,6 +96,7 @@ func (c *Config) getSSHClient() (api.Client, error) {
 		PrivateKeyPath: c.SSHPrivateKeyPath,
 		Timeout:        timeoutDuration,
 		Vars:           "",
+		IsWindows:      true, // Hyper-V hosts are always Windows
 	}
 
 	sshProvider, err := ssh_helper.New(sshConfig)
