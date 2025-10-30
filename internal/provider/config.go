@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/taliesins/terraform-provider-hyperv/api"
-	hyperv_winrm "github.com/taliesins/terraform-provider-hyperv/api/hyperv-winrm"
+	hyperv "github.com/taliesins/terraform-provider-hyperv/api/hyperv"
 	ssh_helper "github.com/taliesins/terraform-provider-hyperv/api/ssh-helper"
 
 	"github.com/dylanmei/iso8601"
@@ -103,8 +103,8 @@ func (c *Config) getSSHClient() (api.Client, error) {
 		return nil, fmt.Errorf("failed to create SSH client: %w", err)
 	}
 
-	// Use the SSH client with the hyperv_winrm API layer
-	hyperVProvider, err := hyperv_winrm.New(&hyperv_winrm.ClientConfig{
+	// Use the SSH client with the hyperv API layer
+	hyperVProvider, err := hyperv.New(&hyperv.ClientConfig{
 		WinRmClient: sshProvider.Client,
 	})
 	if err != nil {
@@ -292,7 +292,7 @@ func getHypervProvider(config *Config) (hypervProvider *api.Provider, err error)
 		return nil, err
 	}
 
-	return hyperv_winrm.New(&hyperv_winrm.ClientConfig{
+	return hyperv.New(&hyperv.ClientConfig{
 		WinRmClient: winrmHelperProvider.Client,
 	})
 }

@@ -1,4 +1,4 @@
-package hyperv_winrm
+package hyperv
 
 import (
 	"github.com/taliesins/terraform-provider-hyperv/api"
