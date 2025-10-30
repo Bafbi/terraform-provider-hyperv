@@ -265,7 +265,7 @@ function Save-IsoImageMetaData {
         [string]$VolumeName = "UNTITLED",
         [parameter(Mandatory = $false, ValueFromPipeline = $false)]
         [string]$ResolveDestinationIsoFilePath = "",
-        [parameter(Mandatory = $true, ValueFromPipeline = $false)]
+        [parameter(Mandatory = $false, ValueFromPipeline = $false)]
         [string]$ResolveDestinationZipFilePath = "",
         [parameter(Mandatory = $false, ValueFromPipeline = $false)]
         [string]$ResolveDestinationBootFilePath = "",
