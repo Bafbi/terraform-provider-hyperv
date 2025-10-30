@@ -1,5 +1,6 @@
 [tools]
 go = "latest"
+golangci-lint = "latest"
 terraform = "latest"
 
 [env]
