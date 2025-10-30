@@ -36,6 +36,7 @@ resource "hyperv_vhd" "test_vm_disk" {
 # Test virtual machine
 resource "hyperv_machine_instance" "test_vm" {
   name                   = "terraform_test_vm"
+  path                   = "V:/terraform_test"
   generation             = 2
   processor_count        = 2
   dynamic_memory         = true
@@ -46,8 +47,12 @@ resource "hyperv_machine_instance" "test_vm" {
   wait_for_ips_timeout   = 10
   state                  = "Off" # Keep it off for testing
 
+  vm_firmware {
+    enable_secure_boot = "off"
+  }
+
   vm_processor {
-    expose_virtualization_extensions = false
+    expose_virtualization_extensions = true
   }
 
   network_adaptors {

@@ -61,6 +61,13 @@ resource "hyperv_machine_instance" "webserver" {
 - `password` (String) The password associated with the username to use for HyperV api calls. It can also be sourced from the `HYPERV_PASSWORD` environment variable`.
 - `port` (Number) The port to run HyperV api calls against. It can also be sourced from the `HYPERV_PORT` environment variable otherwise defaults to `5986`.
 - `script_path` (String) The path used to copy scripts meant for remote execution for HyperV api calls. Can also be sourced from the `HYPERV_SCRIPT_PATH` environment variable otherwise defaults to `C:/Temp/terraform_%RAND%.cmd`.
+- `ssh` (Boolean) Use SSH instead of WinRM for HyperV api calls. Can also be sourced from the `HYPERV_SSH` environment variable otherwise defaults to `false`.
+- `ssh_host` (String) The host for SSH connections. If not specified, will use the `host` field. Can also be sourced from the `HYPERV_SSH_HOST` environment variable.
+- `ssh_password` (String, Sensitive) The password for SSH authentication. Can also be sourced from the `HYPERV_SSH_PASSWORD` environment variable.
+- `ssh_port` (Number) The port for SSH connections. Can also be sourced from the `HYPERV_SSH_PORT` environment variable otherwise defaults to `22`.
+- `ssh_private_key` (String, Sensitive) The private key content for SSH authentication (PEM format). Can also be sourced from the `HYPERV_SSH_PRIVATE_KEY` environment variable.
+- `ssh_private_key_path` (String) The path to the private key file for SSH authentication. Can also be sourced from the `HYPERV_SSH_PRIVATE_KEY_PATH` environment variable.
+- `ssh_user` (String) The username for SSH authentication. If not specified, will use the `user` field. Can also be sourced from the `HYPERV_SSH_USER` environment variable.
 - `timeout` (String) The timeout to wait for the connection to become available for HyperV api calls. Should be provided as a string like 30s or 5m. Can also be sourced from the `HYPERV_TIMEOUT` environment variable otherwise defaults to `30s`.
 - `tls_server_name` (String) The TLS server name for the host used for HyperV api calls. It can also be sourced from the `HYPERV_TLS_SERVER_NAME` environment variable otherwise defaults to empty string.
 - `use_ntlm` (Boolean) Use NTLM for authentication for HyperV api calls. Can also be set via setting the `HYPERV_USE_NTLM` environment variable to `true` otherwise defaults to `true`.
