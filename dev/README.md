@@ -1,43 +1,39 @@
 # Local Development Directory
 
-This directory is for local development and testing of the provider.
+Test configuration for the Hyper-V provider via SSH.
+
+## What it Creates
+
+- Network switch: `test_switch`
+- VHD: 32GB disk at `V:/terraform_test/test_vm.vhdx`
+- ISO: Uploads Debian installer to remote host
+- VM: 2 CPUs, 2GB RAM, connected to switch with ISO mounted
 
 ## Quick Start
 
-1. Build and install the provider:
-   ```bash
-   make install
-   ```
+```bash
+# 1. Download ISO
+cd .images && ./download_iso.sh && cd ..
 
-2. Set the config file to use the local provider:
-   ```bash
-   export TF_CLI_CONFIG_FILE=$PWD/.tofurc
-   ```
+# 2. Build and install provider
+cd .. && mise run install && cd dev
 
-3. Initialize and test:
-   ```bash
-   cd dev
-   tofu init
-   tofu plan
-   ```
+# 3. Test
+tofu init
+tofu plan
+tofu apply
+```
 
-## Using the Test Makefile Targets
+## Configuration
 
-The root Makefile includes several convenient targets for testing:
+Edit `test.tf` to change:
+- SSH host/user/key in provider block
+- VM specs (CPU, RAM, disk size)
+- Paths on remote host (currently V:/terraform_test/)
 
-- `make test-init` - Build, install, and initialize the test directory
-- `make test-plan` - Run `tofu plan` with the local provider
-- `make test-apply` - Run `tofu apply` with the local provider
+## Notes
 
-These targets automatically use the local provider override configuration.
-
-## Manual Testing
-
-You can also test manually by:
-
-1. Building the provider: `make build`
-2. Setting the config: `export TF_CLI_CONFIG_FILE=$PWD/.tofurc`
-3. Working in any example directory or this `dev` directory
-4. Running OpenTofu/Terraform commands as normal
-
-The provider override will ensure your local build is used instead of downloading from the registry.
+- ISO upload happens during `tofu apply` and may take a few minutes
+- VM is created in "Off" state for testing
+- Forward slashes work in Windows paths
+- Directories are created automatically by Terraform

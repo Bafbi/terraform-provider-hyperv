@@ -22,6 +22,7 @@
     },
     "go.goroot": "/home/neudeline/.local/share/mise/installs/go/1.25.3",
     "go.alternateTools": {
-        "go": "/home/neudeline/.local/share/mise/shims/go"
+        "go": "/home/neudeline/.local/share/mise/shims/go",
+        "gopls": "/home/neudeline/.local/share/mise/shims/gopls"
     }
 }
