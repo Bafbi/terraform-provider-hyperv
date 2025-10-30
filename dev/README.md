@@ -19,9 +19,9 @@ cd .images && ./download_iso.sh && cd ..
 cd .. && mise run install && cd dev
 
 # 3. Test
-tofu init
-tofu plan
-tofu apply
+terraform init
+terraform plan
+terraform apply
 ```
 
 ## Configuration
@@ -33,7 +33,7 @@ Edit `test.tf` to change:
 
 ## Notes
 
-- ISO upload happens during `tofu apply` and may take a few minutes
+- ISO upload happens during `terraform apply` and may take a few minutes
 - VM is created in "Off" state for testing
 - Forward slashes work in Windows paths
 - Directories are created automatically by Terraform

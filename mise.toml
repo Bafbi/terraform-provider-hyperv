@@ -1,6 +1,5 @@
 [tools]
 go = "latest"
-opentofu = "latest"
 terraform = "latest"
 
 [env]
@@ -14,7 +13,7 @@ run = "go build -o terraform-provider-hyperv"
 description = "Build and install the provider"
 run = "go install ."
 depends = ["build"]
-
+  
 [tasks.test]
 description = "Run unit tests"
 run = "go test ./... -v -short -timeout 10m"
@@ -51,23 +50,23 @@ description = "Initialize dev environment for testing"
 run = """
 cd dev
 rm -rf .terraform .terraform.lock.hcl
-tofu init
+terraform init
 """
 depends = ["install"]
 
 [tasks.dev-plan]
-description = "Run tofu plan in dev directory"
-run = "tofu -chdir=dev plan"
+description = "Run terraform plan in dev directory"
+run = "terraform -chdir=dev plan"
 depends = ["install"]
 
 [tasks.dev-apply]
-description = "Run tofu apply in dev directory"
-run = "tofu -chdir=dev apply"
+description = "Run terraform apply in dev directory"
+run = "terraform -chdir=dev apply"
 depends = ["install"]
 
 [tasks.dev-destroy]
-description = "Run tofu destroy in dev directory"
-run = "tofu -chdir=dev destroy"
+description = "Run terraform destroy in dev directory"
+run = "terraform -chdir=dev destroy"
 
 [tasks.setup]
 description = "Initial setup and install dependencies"

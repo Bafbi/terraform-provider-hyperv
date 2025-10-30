@@ -15,7 +15,7 @@ Manage Microsoft Hyper-V resources via SSH from any platform.
 
 ## Requirements
 
-- Terraform/OpenTofu 1.0+
+- Terraform 1.0+
 - Windows Server 2016+ or Windows 10+ with Hyper-V
 - SSH server on Hyper-V host (OpenSSH recommended)
 

@@ -49,7 +49,6 @@ website/vendor
 # Local development
 terraform-provider-hyperv
 .terraformrc
-.tofurc
 /dev/.terraform
 /dev/.terraform.lock.hcl
 /dev/*.tfstate

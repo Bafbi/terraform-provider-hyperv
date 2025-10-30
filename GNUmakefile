@@ -11,9 +11,7 @@ build:
 install: build
 	@echo "Provider installed to $(shell go env GOBIN)/terraform-provider-hyperv"
 	@echo ""
-	@echo "To use with OpenTofu/Terraform, set:"
-	@echo "  export TF_CLI_CONFIG_FILE=$(PWD)/.tofurc"
-	@echo "or"
+	@echo "To use with Terraform, set:"
 	@echo "  export TF_CLI_CONFIG_FILE=$(PWD)/.terraformrc"
 
 # Run acceptance tests
@@ -54,19 +52,19 @@ test-init: install
 	@echo "Initializing test environment..."
 	@cd examples/vm-from-scratch && \
 		rm -rf .terraform .terraform.lock.hcl && \
-		TF_CLI_CONFIG_FILE=$(PWD)/.tofurc tofu init
+		TF_CLI_CONFIG_FILE=$(PWD)/.terraformrc terraform init
 
-# Run tofu plan in test directory
+# Run terraform plan in test directory
 .PHONY: test-plan
 test-plan: install
 	@cd examples/vm-from-scratch && \
-		TF_CLI_CONFIG_FILE=$(PWD)/.tofurc tofu plan
+		TF_CLI_CONFIG_FILE=$(PWD)/.terraformrc terraform plan
 
-# Run tofu apply in test directory
+# Run terraform apply in test directory
 .PHONY: test-apply
 test-apply: install
 	@cd examples/vm-from-scratch && \
-		TF_CLI_CONFIG_FILE=$(PWD)/.tofurc tofu apply
+		TF_CLI_CONFIG_FILE=$(PWD)/.terraformrc terraform apply
 
 # Show help
 .PHONY: help
@@ -81,6 +79,6 @@ help:
 	@echo "  docs        - Generate documentation"
 	@echo "  clean       - Clean build artifacts"
 	@echo "  test-init   - Initialize test directory with local provider"
-	@echo "  test-plan   - Run tofu plan in test directory"
-	@echo "  test-apply  - Run tofu apply in test directory"
+	@echo "  test-plan   - Run terraform plan in test directory"
+	@echo "  test-apply  - Run terraform apply in test directory"
 	@echo "  help        - Show this help message"
