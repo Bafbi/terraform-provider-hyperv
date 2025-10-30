@@ -1,0 +1,140 @@
+[tools]
+go = "latest"
+opentofu = "latest"
+
+[env]
+TF_CLI_CONFIG_FILE = ".terraformrc"
+
+[tasks.build]
+description = "Build the provider binary"
+run = "go build -o terraform-provider-hyperv"
+
+[tasks.install]
+description = "Build and install the provider"
+run = "go install ."
+depends = ["build"]
+
+[tasks.test]
+description = "Run unit tests"
+run = "go test ./... -v -short -timeout 10m"
+
+[tasks.test-ssh]
+description = "Run SSH helper tests (requires SSH_TEST_HOST)"
+run = "go test -v ./api/ssh-helper/"
+
+[tasks.testacc]
+description = "Run acceptance tests"
+env = { TF_ACC = "1" }
+run = "go test ./... -v -timeout 120m"
+
+[tasks.fmt]
+description = "Format Go and Terraform code"
+run = """
+go fmt ./...
+terraform fmt -recursive ./examples/
+"""
+
+[tasks.lint]
+description = "Run linter"
+run = "golangci-lint run"
+
+[tasks.docs]
+description = "Generate documentation"
+run = "go generate ./..."
+
+[tasks.clean]
+description = "Clean build artifacts"
+run = """
+rm -f terraform-provider-hyperv
+go clean
+"""
+
+[tasks.dev-init]
+description = "Initialize dev environment for testing"
+run = """
+cd dev
+rm -rf .terraform .terraform.lock.hcl
+tofu init
+"""
+depends = ["install"]
+
+[tasks.dev-plan]
+description = "Run tofu plan in dev directory"
+run = "tofu -chdir=dev plan"
+depends = ["install"]
+
+[tasks.dev-apply]
+description = "Run tofu apply in dev directory"
+run = "tofu -chdir=dev apply"
+depends = ["install"]
+
+[tasks.dev-destroy]
+description = "Run tofu destroy in dev directory"
+run = "tofu -chdir=dev destroy"
+
+[tasks.setup]
+description = "Initial setup and install dependencies"
+run = """
+echo "Setting up terraform-provider-hyperv development environment..."
+go mod download
+go mod tidy
+
+# Generate .terraformrc with dynamic paths
+# Use GOBIN if set, otherwise use GOPATH/bin
+GOBIN=$(go env GOBIN)
+if [ -z "$GOBIN" ]; then
+  GOPATH=$(go env GOPATH)
+  GOBIN="$GOPATH/bin"
+fi
+
+cat > .terraformrc << EOF
+provider_installation {
+  dev_overrides {
+    "registry.terraform.io/taliesins/hyperv" = "$GOBIN"
+  }
+
+  # For all other providers, install them directly from their origin provider
+  # registries as normal.
+  direct {}
+}
+EOF
+
+echo "✅ Generated .terraformrc with GOBIN=$GOBIN"
+echo "✅ Setup complete! Run 'mise run install' to build and install the provider."
+"""
+
+[tasks.config]
+description = "Generate .terraformrc with dynamic paths"
+run = """
+# Generate .terraformrc with dynamic paths
+# Use GOBIN if set, otherwise use GOPATH/bin
+GOBIN=$(go env GOBIN)
+if [ -z "$GOBIN" ]; then
+  GOPATH=$(go env GOPATH)
+  GOBIN="$GOPATH/bin"
+fi
+
+cat > .terraformrc << EOF
+provider_installation {
+  dev_overrides {
+    "registry.terraform.io/taliesins/hyperv" = "$GOBIN"
+  }
+
+  # For all other providers, install them directly from their origin provider
+  # registries as normal.
+  direct {}
+}
+EOF
+
+echo "✅ Generated .terraformrc with GOBIN=$GOBIN"
+"""
+
+[tasks.verify]
+description = "Verify the installation"
+run = """
+echo "Checking provider binary..."
+ls -lh ~/.local/share/mise/installs/go/*/bin/terraform-provider-hyperv || echo "Provider not installed"
+echo ""
+echo "Environment variables:"
+echo "  TF_CLI_CONFIG_FILE=$TF_CLI_CONFIG_FILE"
+"""
