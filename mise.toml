@@ -37,7 +37,6 @@ run = "golangci-lint run"
 
 [tasks.docs]
 description = "Generate documentation"
-dir = "tools"
 run = "go generate ./..."
 
 [tasks.clean]

@@ -8,6 +8,14 @@ import (
 	"github.com/taliesins/terraform-provider-hyperv/internal/provider"
 )
 
+// Format Terraform code for use in documentation.
+// If you do not have Terraform installed, you can remove the formatting command, but it is suggested
+// to ensure the documentation is formatted properly.
+//go:generate terraform fmt -recursive ./examples/
+
+// Generate documentation.
+//go:generate go run github.com/hashicorp/terraform-plugin-docs/cmd/tfplugindocs generate --provider-dir .
+
 var (
 	// these will be set by the goreleaser configuration
 	// to appropriate values for the compiled binary
