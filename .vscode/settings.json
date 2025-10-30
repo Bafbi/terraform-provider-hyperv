@@ -1,0 +1,28 @@
+{
+    "go.testFlags": ["-v"],
+    "go.buildFlags": [],
+    "go.lintTool": "golangci-lint",
+    "go.lintOnSave": "package",
+    "go.formatTool": "gofmt",
+    "go.useLanguageServer": true,
+    "go.toolsManagement.autoUpdate": true,
+    "[go]": {
+        "editor.formatOnSave": true,
+        "editor.codeActionsOnSave": {
+            "source.organizeImports": "explicit"
+        }
+    },
+    "[terraform]": {
+        "editor.formatOnSave": true
+    },
+    "files.exclude": {
+        "**/.terraform": true,
+        "**/.terraform.lock.hcl": false,
+        "**/terraform-provider-hyperv": true
+    },
+    "go.goroot": "/home/neudeline/.local/share/mise/installs/go/1.25.3",
+    "go.alternateTools": {
+        "go": "/home/neudeline/.local/share/mise/shims/go",
+        "gopls": "/home/neudeline/.local/share/mise/shims/gopls"
+    }
+}

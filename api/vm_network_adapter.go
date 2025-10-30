@@ -214,7 +214,7 @@ func ExpandNetworkAdapters(d *schema.ResourceData) ([]VmNetworkAdapter, error) {
 }
 
 func FlattenMandatoryFeatureIds(mandatoryFeatureIdStrings []string) *schema.Set {
-	if mandatoryFeatureIdStrings == nil || len(mandatoryFeatureIdStrings) < 1 {
+	if len(mandatoryFeatureIdStrings) < 1 {
 		return nil
 	}
 

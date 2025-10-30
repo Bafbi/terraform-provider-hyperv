@@ -130,16 +130,20 @@ func DiffSuppressVmHardDiskPath(key, old, new string, d *schema.ResourceData) bo
 		return true
 	}
 
-	if new == old {
+	// Normalize path separators for comparison (Windows accepts both / and \)
+	oldNormalized := strings.ReplaceAll(old, "\\", "/")
+	newNormalized := strings.ReplaceAll(new, "\\", "/")
+
+	if newNormalized == oldNormalized {
 		return true
 	}
 
 	// Ignore snapshots otherwise it will change from "c:\\vhdx\\web_server_g2_B63C9D15-F9A3-4F63-A896-FFD80BC7754C.avhdx" -> "c:\\vhdx\\web_server_g2.vhdx"
-	oldExtension := strings.ToLower(filepath.Ext(old))
-	newExtension := strings.ToLower(filepath.Ext(new))
+	oldExtension := strings.ToLower(filepath.Ext(oldNormalized))
+	newExtension := strings.ToLower(filepath.Ext(newNormalized))
 	if oldExtension == ".avhdx" && newExtension == ".vhdx" {
-		newName := new[0 : len(new)-len(newExtension)]
-		return strings.HasPrefix(old, newName+"_")
+		newName := newNormalized[0 : len(newNormalized)-len(newExtension)]
+		return strings.HasPrefix(oldNormalized, newName+"_")
 	}
 
 	return false

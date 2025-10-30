@@ -48,6 +48,11 @@ const (
 
 	// DefaultTimeout is used if there is no timeout given
 	DefaultTimeoutString = "30s"
+
+	// SSH defaults
+	DefaultSSHPort = 22
+
+	DefaultSSHPrivateKeyPath = ""
 )
 
 func init() {
@@ -189,6 +194,57 @@ func New(version string, commit string) func() *schema.Provider {
 					DefaultFunc: schema.EnvDefaultFunc("HYPERV_TIMEOUT", DefaultTimeoutString),
 					Description: "The timeout to wait for the connection to become available for HyperV api calls. Should be provided as a string like 30s or 5m. Can also be sourced from the `HYPERV_TIMEOUT` environment variable otherwise defaults to `30s`.",
 				},
+
+				"ssh": {
+					Type:        schema.TypeBool,
+					Optional:    true,
+					DefaultFunc: schema.EnvDefaultFunc("HYPERV_SSH", false),
+					Description: "Use SSH instead of WinRM for HyperV api calls. Can also be sourced from the `HYPERV_SSH` environment variable otherwise defaults to `false`.",
+				},
+
+				"ssh_user": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					DefaultFunc: schema.EnvDefaultFunc("HYPERV_SSH_USER", ""),
+					Description: "The username for SSH authentication. If not specified, will use the `user` field. Can also be sourced from the `HYPERV_SSH_USER` environment variable.",
+				},
+
+				"ssh_password": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					Sensitive:   true,
+					DefaultFunc: schema.EnvDefaultFunc("HYPERV_SSH_PASSWORD", ""),
+					Description: "The password for SSH authentication. Can also be sourced from the `HYPERV_SSH_PASSWORD` environment variable.",
+				},
+
+				"ssh_private_key": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					Sensitive:   true,
+					DefaultFunc: schema.EnvDefaultFunc("HYPERV_SSH_PRIVATE_KEY", ""),
+					Description: "The private key content for SSH authentication (PEM format). Can also be sourced from the `HYPERV_SSH_PRIVATE_KEY` environment variable.",
+				},
+
+				"ssh_private_key_path": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					DefaultFunc: schema.EnvDefaultFunc("HYPERV_SSH_PRIVATE_KEY_PATH", DefaultSSHPrivateKeyPath),
+					Description: "The path to the private key file for SSH authentication. Can also be sourced from the `HYPERV_SSH_PRIVATE_KEY_PATH` environment variable.",
+				},
+
+				"ssh_host": {
+					Type:        schema.TypeString,
+					Optional:    true,
+					DefaultFunc: schema.EnvDefaultFunc("HYPERV_SSH_HOST", ""),
+					Description: "The host for SSH connections. If not specified, will use the `host` field. Can also be sourced from the `HYPERV_SSH_HOST` environment variable.",
+				},
+
+				"ssh_port": {
+					Type:        schema.TypeInt,
+					Optional:    true,
+					DefaultFunc: schema.EnvDefaultFunc("HYPERV_SSH_PORT", DefaultSSHPort),
+					Description: "The port for SSH connections. Can also be sourced from the `HYPERV_SSH_PORT` environment variable otherwise defaults to `22`.",
+				},
 			},
 
 			ResourcesMap: map[string]*schema.Resource{
@@ -260,27 +316,55 @@ func configure(version string, commit string, provider *schema.Provider) func(co
 			terraformVersion = "0.11+compatible"
 		}
 
+		// Determine SSH configuration
+		useSSH := resourceData.Get("ssh").(bool)
+		sshUser := resourceData.Get("ssh_user").(string)
+		sshPassword := resourceData.Get("ssh_password").(string)
+		sshPrivateKey := resourceData.Get("ssh_private_key").(string)
+		sshPrivateKeyPath := resourceData.Get("ssh_private_key_path").(string)
+		sshHost := resourceData.Get("ssh_host").(string)
+		sshPort := resourceData.Get("ssh_port").(int)
+
+		// Use fallback values if SSH-specific fields are not set
+		if sshUser == "" {
+			sshUser = resourceData.Get("user").(string)
+		}
+		if sshHost == "" {
+			sshHost = resourceData.Get("host").(string)
+		}
+		if sshPassword == "" && sshPrivateKey == "" && sshPrivateKeyPath == "" {
+			// If no SSH-specific auth is provided, try password from general config
+			sshPassword = resourceData.Get("password").(string)
+		}
+
 		config := Config{
-			Version:          version,
-			Commit:           commit,
-			TerraformVersion: terraformVersion,
-			User:             resourceData.Get("user").(string),
-			Password:         resourceData.Get("password").(string),
-			Host:             resourceData.Get("host").(string),
-			Port:             resourceData.Get("port").(int),
-			HTTPS:            resourceData.Get("https").(bool),
-			CACert:           cacert,
-			Cert:             cert,
-			Key:              key,
-			Insecure:         resourceData.Get("insecure").(bool),
-			NTLM:             resourceData.Get("use_ntlm").(bool),
-			KrbRealm:         resourceData.Get("kerberos_realm").(string),
-			KrbSpn:           resourceData.Get("kerberos_service_principal_name").(string),
-			KrbConfig:        resourceData.Get("kerberos_config").(string),
-			KrbCCache:        resourceData.Get("kerberos_credential_cache").(string),
-			TLSServerName:    resourceData.Get("tls_server_name").(string),
-			ScriptPath:       resourceData.Get("script_path").(string),
-			Timeout:          resourceData.Get("timeout").(string),
+			Version:           version,
+			Commit:            commit,
+			TerraformVersion:  terraformVersion,
+			User:              resourceData.Get("user").(string),
+			Password:          resourceData.Get("password").(string),
+			Host:              resourceData.Get("host").(string),
+			Port:              resourceData.Get("port").(int),
+			HTTPS:             resourceData.Get("https").(bool),
+			CACert:            cacert,
+			Cert:              cert,
+			Key:               key,
+			Insecure:          resourceData.Get("insecure").(bool),
+			NTLM:              resourceData.Get("use_ntlm").(bool),
+			KrbRealm:          resourceData.Get("kerberos_realm").(string),
+			KrbSpn:            resourceData.Get("kerberos_service_principal_name").(string),
+			KrbConfig:         resourceData.Get("kerberos_config").(string),
+			KrbCCache:         resourceData.Get("kerberos_credential_cache").(string),
+			TLSServerName:     resourceData.Get("tls_server_name").(string),
+			ScriptPath:        resourceData.Get("script_path").(string),
+			Timeout:           resourceData.Get("timeout").(string),
+			SSH:               useSSH,
+			SSHUser:           sshUser,
+			SSHPassword:       sshPassword,
+			SSHPrivateKey:     sshPrivateKey,
+			SSHPrivateKeyPath: sshPrivateKeyPath,
+			SSHHost:           sshHost,
+			SSHPort:           sshPort,
 		}
 
 		client, err := config.Client()

@@ -56,19 +56,23 @@ func resourceHyperVMachineInstance() *schema.Resource {
 						return true
 					}
 
+					// Normalize path separators for comparison (Windows accepts both / and \)
+					oldNormalized := strings.ReplaceAll(oldValue, "\\", "/")
+					newNormalized := strings.ReplaceAll(newValue, "\\", "/")
+
 					// When specifying path on new-vm it will auto append machine name on the end
 					name := d.Get("name").(string)
-					computedPath := newValue
-					if !strings.HasSuffix(computedPath, "\\") {
-						computedPath += "\\"
+					computedPath := newNormalized
+					if !strings.HasSuffix(computedPath, "/") {
+						computedPath += "/"
 					}
 					computedPath += name
 
-					if strings.EqualFold(computedPath, oldValue) {
+					if strings.EqualFold(computedPath, oldNormalized) {
 						return true
 					}
 
-					if strings.EqualFold(oldValue, newValue) {
+					if strings.EqualFold(oldNormalized, newNormalized) {
 						return true
 					}
 
@@ -640,15 +644,28 @@ func resourceHyperVMachineInstance() *schema.Resource {
 							Description: "Specifies the number of the location on the controller at which the DVD drive is to be added.",
 						},
 						"path": {
-							Type:        schema.TypeString,
-							Optional:    true,
-							Default:     "",
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "",
+							DiffSuppressFunc: func(k, oldValue, newValue string, d *schema.ResourceData) bool {
+								// Normalize path separators for comparison (Windows accepts both / and \)
+								oldNormalized := strings.ReplaceAll(oldValue, "\\", "/")
+								newNormalized := strings.ReplaceAll(newValue, "\\", "/")
+								return strings.EqualFold(oldNormalized, newNormalized)
+							},
 							Description: "Specifies the full path to the virtual hard disk file or physical hard disk volume for the added DVD drive.",
 						},
 						"resource_pool_name": {
-							Type:        schema.TypeString,
-							Optional:    true,
-							Default:     "",
+							Type:     schema.TypeString,
+							Optional: true,
+							Default:  "",
+							DiffSuppressFunc: func(k, oldValue, newValue string, d *schema.ResourceData) bool {
+								// Ignore changes when newValue is empty and oldValue is the default "Primordial"
+								if newValue == "" && strings.EqualFold(oldValue, "Primordial") {
+									return true
+								}
+								return strings.EqualFold(oldValue, newValue)
+							},
 							Description: "Specifies the friendly name of the ISO resource pool to which this DVD drive is to be associated.",
 						},
 					},
@@ -736,6 +753,7 @@ func resourceHyperVMachineInstance() *schema.Resource {
 			"vm_firmware": {
 				Type:     schema.TypeList,
 				Optional: true,
+				Computed: true,
 				MaxItems: 1,
 				//DefaultFunc: api.DefaultVmFirmwares,
 				Elem: &schema.Resource{
@@ -828,19 +846,23 @@ func resourceHyperVMachineInstance() *schema.Resource {
 												return true
 											}
 
+											// Normalize path separators for comparison (Windows accepts both / and \)
+											oldNormalized := strings.ReplaceAll(oldValue, "\\", "/")
+											newNormalized := strings.ReplaceAll(newValue, "\\", "/")
+
 											// When specifying path on new-vm it will auto append machine name on the end
 											name := d.Get("name").(string)
-											computedPath := newValue
-											if !strings.HasSuffix(computedPath, "\\") {
-												computedPath += "\\"
+											computedPath := newNormalized
+											if !strings.HasSuffix(computedPath, "/") {
+												computedPath += "/"
 											}
 											computedPath += name
 
-											if strings.EqualFold(computedPath, oldValue) {
+											if strings.EqualFold(computedPath, oldNormalized) {
 												return true
 											}
 
-											if strings.EqualFold(oldValue, newValue) {
+											if strings.EqualFold(oldNormalized, newNormalized) {
 												return true
 											}
 

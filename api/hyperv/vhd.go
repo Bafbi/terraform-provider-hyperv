@@ -1,4 +1,4 @@
-package hyperv_winrm
+package hyperv
 
 import (
 	"context"

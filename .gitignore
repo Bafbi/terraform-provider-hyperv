@@ -45,3 +45,12 @@ website/vendor
 /.vs
 /.idea
 /.terraform
+
+# Local development
+terraform-provider-hyperv
+.terraformrc
+/dev/.terraform
+/dev/.terraform.lock.hcl
+/dev/*.tfstate
+/dev/*.tfstate.backup
+/dev/*.log

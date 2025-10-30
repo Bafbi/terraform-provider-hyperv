@@ -1,237 +1,126 @@
-HyperV Terraform Provider
-=========================
+# Terraform HyperV Provider
 
-#This is beta code. Working on adding acceptance tests so that I can mark it as release quality.
+Manage Microsoft Hyper-V resources via SSH from any platform.
 
-- [Website](https://github.com/taliesins/terraform-provider-hyperv)
-- [Releases](https://github.com/taliesins/terraform-provider-hyperv/releases)
 - [Documentation](https://registry.terraform.io/providers/taliesins/hyperv/latest/docs)
 - [Issues](https://github.com/taliesins/terraform-provider-hyperv/issues)
+- [Releases](https://github.com/taliesins/terraform-provider-hyperv/releases)
 
-![Hashi Logo](https://cdn.rawgit.com/taliesins/terraform-provider-hyperv/master/website/logo-hashicorp.svg "Hashi Logo")
-![Windows Server Logo](https://cdn.rawgit.com/taliesins/terraform-provider-hyperv/master/website/windows-server-2016-logo.svg "Windows Server Logo")
+## Features
 
-Features
-------------
-- Remote scheduled task powershell runner does not run into issues with escaping variables or escaping between the different scripting layers.
-- Changed Winrmcp to use Powershell commands directly rather than using base64 encoded strings as we want to prevent Powershell progress leaking.
-- Changed Winrmcp to return path of files on remote box as the location of $env:temp can change in Powershell depending on the session instance.
-- Runs all HyperV commands remotely i.e. so the provider can run on a linux machine and connect remotely to a windows machine running HyperV.
-- Almost all functionality of Powershell HyperV commandlets for the resources is exposed via Terraform resources.
-- Resource - Network Switch
-- Resource - VHD
-- Resource - Virtual Machine Instance
-  - Network adaptors
-  - Hard drives
-  - Dvd drives
+- Manage Hyper-V from Linux, macOS, or Windows via SSH
+- Create and manage virtual machines, VHDs, and network switches
+- SSH authentication with password or private key
+- Full VM lifecycle: network adapters, disks, DVD drives, processors
 
-Requirements
-------------
+## Requirements
 
--	[Terraform](https://www.terraform.io/downloads.html) 1.29.x
--	[Go](https://golang.org/doc/install) 1.19 (to build the provider plugin)
--   Connectivity and credentials to a server running HyperV on Windows 10, Windows Server 2016 or newer
+- Terraform 1.0+
+- Windows Server 2016+ or Windows 10+ with Hyper-V
+- SSH server on Hyper-V host (OpenSSH recommended)
 
-Setting up server for Provider usage
-------------------------------------
+## Quick Start
 
-- Install HyperV `Enable-WindowsOptionalFeature -Online -FeatureName:Microsoft-Hyper-V -All`
-- Enable WinRM with negotiate authentication support
+### 1. Setup Hyper-V Host
+
+```powershell
+# Install Hyper-V
+Enable-WindowsOptionalFeature -Online -FeatureName Microsoft-Hyper-V -All
+
+# Install OpenSSH Server
+Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+Start-Service sshd
+Set-Service -Name sshd -StartupType 'Automatic'
+
+# Configure firewall
+New-NetFirewallRule -Name sshd -DisplayName 'OpenSSH Server' `
+  -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22
 ```
-Enable-PSRemoting -SkipNetworkProfileCheck -Force
 
-Set-WSManInstance WinRM/Config/WinRS -ValueSet @{MaxMemoryPerShellMB = 1024}
-Set-WSManInstance WinRM/Config -ValueSet @{MaxTimeoutms=1800000}
-Set-WSManInstance WinRM/Config/Client -ValueSet @{TrustedHosts="*"}
-Set-WSManInstance WinRM/Config/Service/Auth -ValueSet @{Negotiate = $true}
-```
-- WinRM allow HTTPS
-```
-#Create CA certificate
-$rootCaName = "DevRootCA"
-$rootCaPassword = ConvertTo-SecureString "P@ssw0rd" -asplaintext -force 
-$rootCaCertificate = Get-ChildItem cert:\LocalMachine\Root |?{$_.subject -eq "CN=$rootCaName"}
-if (!$rootCaCertificate){
-  Get-ChildItem cert:\LocalMachine\My |?{$_.subject -eq "CN=$rootCaName"} | remove-item -force
-  if (Test-Path .\$rootCaName.cer) {
-    remove-item .\$rootCaName.cer -force
-  }
-  if (Test-Path .\$rootCaName.pfx) {
-    remove-item .\$rootCaName.pfx -force
-  }
-  $params = @{
-    Type = 'Custom'
-    DnsName = $rootCaName
-    Subject = "CN=$rootCaName"
-    KeyExportPolicy = 'Exportable'
-    CertStoreLocation = 'Cert:\LocalMachine\My'
-    KeyUsageProperty = 'All'
-    KeyUsage = 'None'
-    Provider = 'Microsoft Strong Cryptographic Provider'
-    KeySpec = 'KeyExchange'
-    KeyLength = 4096
-    HashAlgorithm = 'SHA256'
-    KeyAlgorithm = 'RSA'
-    NotAfter = (Get-Date).AddYears(5)
-  }
-  $rootCaCertificate = New-SelfSignedCertificate @params
+### 2. Configure Provider
 
-  Export-Certificate -Cert $rootCaCertificate -FilePath .\$rootCaName.cer -Verbose
-  Export-PfxCertificate -Cert $rootCaCertificate -FilePath .\$rootCaName.pfx -Password $rootCaPassword -Verbose
-  Get-ChildItem cert:\LocalMachine\My |?{$_.subject -eq "CN=$rootCaName"} | remove-item -force
-  Import-PfxCertificate -FilePath .\$rootCaName.pfx -CertStoreLocation Cert:\LocalMachine\Root -password $rootCaPassword -Exportable -Verbose
-  Import-PfxCertificate -FilePath .\$rootCaName.pfx -CertStoreLocation Cert:\LocalMachine\My -password $rootCaPassword -Exportable -Verbose
-  $rootCaCertificate = Get-ChildItem cert:\LocalMachine\My |?{$_.subject -eq "CN=$rootCaName"}
+```hcl
+provider "hyperv" {
+  host     = "hyperv-host.example.com"
+  user     = "Administrator"
+  password = var.password
+  ssh      = true
+  # Or use SSH key: ssh_private_key_path = "~/.ssh/id_rsa"
+}
+```
+
+### 3. Create Resources
+
+```hcl
+resource "hyperv_network_switch" "default" {
+  name = "external-switch"
 }
 
-#Create host certificate using CA
-$hostName = [System.Net.Dns]::GetHostName()
-$hostPassword = ConvertTo-SecureString "P@ssw0rd" -asplaintext -force
-$hostCertificate = Get-ChildItem cert:\LocalMachine\My |?{$_.subject -eq "CN=$hostName"}
-if (!$hostCertificate){
-  if (Test-Path .\$hostName.cer) {
-    remove-item .\$hostName.cer -force
-  }
-  if (Test-Path .\$hostName.pfx) {
-    remove-item .\$hostName.pfx -force
-  }
-  $dnsNames = @($hostName, "localhost", "127.0.0.1") + [System.Net.Dns]::GetHostByName($env:computerName).AddressList.IpAddressToString
+resource "hyperv_vhd" "disk" {
+  path = "C:\\VMs\\disk.vhdx"
+  size = 60 * 1024 * 1024 * 1024  # 60GB
+}
+
+resource "hyperv_machine_instance" "vm" {
+  name         = "my-vm"
+  generation   = 2
+  processor_count = 2
+  memory_startup_bytes = 2048 * 1024 * 1024  # 2GB
   
-  $params = @{
-    Type = 'Custom'
-    DnsName = $dnsNames
-    Subject = "CN=$hostName"
-    KeyExportPolicy = 'Exportable'
-    CertStoreLocation = 'Cert:\LocalMachine\My'
-    KeyUsageProperty = 'All'
-    KeyUsage = @('KeyEncipherment','DigitalSignature','NonRepudiation')
-    TextExtension = @("2.5.29.37={text}1.3.6.1.5.5.7.3.1,1.3.6.1.5.5.7.3.2")
-    Signer = $rootCaCertificate
-    Provider = 'Microsoft Strong Cryptographic Provider'
-    KeySpec = 'KeyExchange'
-    KeyLength = 2048
-    HashAlgorithm = 'SHA256'
-    KeyAlgorithm = 'RSA'
-    NotAfter = (Get-date).AddYears(2)
+  network_adaptors {
+    name        = "eth0"
+    switch_name = hyperv_network_switch.default.name
   }
-  $hostCertificate = New-SelfSignedCertificate @params
-  Export-Certificate -Cert $hostCertificate -FilePath .\$hostName.cer -Verbose
-  Export-PfxCertificate -Cert $hostCertificate -FilePath .\$hostName.pfx -Password $hostPassword -Verbose
-  Get-ChildItem cert:\LocalMachine\My |?{$_.subject -eq "CN=$hostName"} | remove-item -force
-  Import-PfxCertificate -FilePath .\$hostName.pfx -CertStoreLocation Cert:\LocalMachine\My -password $hostPassword -Exportable -Verbose
-  $hostCertificate = Get-ChildItem cert:\LocalMachine\My |?{$_.subject -eq "CN=$hostName"}
+  
+  hard_disk_drives {
+    path = hyperv_vhd.disk.path
+  }
 }
-
-Get-ChildItem wsman:\localhost\Listener\ | Where-Object -Property Keys -eq 'Transport=HTTPS' | Remove-Item -Recurse
-New-Item -Path WSMan:\localhost\Listener -Transport HTTPS -Address * -CertificateThumbPrint $($hostCertificate.Thumbprint) -Force -Verbose
-
-Restart-Service WinRM -Verbose
-
-New-NetFirewallRule -DisplayName "Windows Remote Management (HTTPS-In)" -Name "WinRMHTTPSIn" -Profile Any -LocalPort 5986 -Protocol TCP -Verbose
-```
-- WinRM allow HTTP
-```
-# Get the public networks
-$PubNets = Get-NetConnectionProfile -NetworkCategory Public -ErrorAction SilentlyContinue 
-
-# Set the profile to private
-foreach ($PubNet in $PubNets) {
-    Set-NetConnectionProfile -InterfaceIndex $PubNet.InterfaceIndex -NetworkCategory Private
-}
-
-# Configure winrm
-Set-WSManInstance WinRM/Config/Service -ValueSet @{AllowUnencrypted = $true}
-
-# Restore network categories
-foreach ($PubNet in $PubNets) {
-    Set-NetConnectionProfile -InterfaceIndex $PubNet.InterfaceIndex -NetworkCategory Public
-}
-
-Get-ChildItem wsman:\localhost\Listener\ | Where-Object -Property Keys -eq 'Transport=HTTP' | Remove-Item -Recurse
-New-Item -Path WSMan:\localhost\Listener -Transport HTTP -Address * -Force -Verbose
-
-Restart-Service WinRM -Verbose
-
-New-NetFirewallRule -DisplayName "Windows Remote Management (HTTP-In)" -Name "WinRMHTTPIn" -Profile Any -LocalPort 5985 -Protocol TCP -Verbose
 ```
 
-[Enable Ssl for WinRM using Powershell](https://frontier.town/2011/12/overthere-control-windows-from-java/)
+## Provider Configuration
 
-To debug WinRm issues enable debugging by setting environment variable `WINRMCP_DEBUG=1` and `TF_LOG=DEBUG`
+| Setting | Description | Default |
+|---------|-------------|---------|
+| `host` | Hyper-V host address | `localhost` |
+| `user` | SSH username | `Administrator` |
+| `password` | SSH password | - |
+| `ssh_private_key_path` | Path to SSH private key | - |
+| `ssh` | Enable SSH connection | `false` |
+| `port` | SSH port | `22` |
+| `timeout` | Connection timeout | `30s` |
 
-Check if you can connect to WinRM
-```
-$hostName=[System.Net.Dns]::GetHostName()
-$winrmPort = "5986"
+Environment variables: `HYPERV_HOST`, `HYPERV_USER`, `HYPERV_PASSWORD`, `HYPERV_SSH`, etc.
 
-# Get the credentials of the machine
-$cred = Get-Credential
+## Resources
 
-# Connect to the machine
-$soptions = New-PSSessionOption -SkipCACheck -SkipCNCheck
-Enter-PSSession -ComputerName $hostName -Port $winrmPort -Credential $cred -SessionOption $soptions -UseSSL
-```
+- `hyperv_network_switch` - Virtual switches
+- `hyperv_vhd` - Virtual hard disks
+- `hyperv_machine_instance` - Virtual machines
+- `hyperv_iso_image` - ISO images
 
-Building The Provider
----------------------
+See [documentation](https://registry.terraform.io/providers/taliesins/hyperv/latest/docs) for details.
 
-Clone repository to: `$GOPATH/src/github.com/taliesins/terraform-provider-hyperv`
+## Development
 
-```sh
-$ mkdir -p $GOPATH/src/github.com/taliesins; cd $GOPATH/src/github.com/taliesins
-$ git clone https://github.com/taliesins/terraform-provider-hyperv.git
-```
+```bash
+# Setup (requires mise)
+mise run setup
 
-Enter the provider directory and build the provider
+# Build and install
+mise run install
 
-```sh
-$ cd $GOPATH/src/github.com/taliesins/terraform-provider-hyperv
-$ make build
-```
+# Test
+mise run test
+mise run dev-plan
 
-Using the provider
-----------------------
-## Fill in for each provider
-
-Developing the Provider
----------------------------
-
-If you wish to work on the provider, you'll first need [Go](http://www.golang.org) installed on your machine (version 1.17+ is *required*). You'll also need to correctly setup a [GOPATH](http://golang.org/doc/code.html#GOPATH), as well as adding `$GOPATH/bin` to your `$PATH`.
-
-To compile the provider, run `make build`. This will build the provider and put the provider binary in the `$GOPATH/bin` directory.
-
-You should also use the terraform [documentation](https://developer.hashicorp.com/terraform/tutorials/providers-plugin-framework/providers-plugin-framework-provider#prepare-terraform-for-local-provider-install) to setup the terraform environment correctly so that you can use your locally compiled version.
-
-```sh
-$ make build
-...
-$ $GOPATH/bin/terraform-provider-hyperv
-...
+# Or use make
+make install
+make test
 ```
 
-In order to test the provider, you can simply run `make test`.
+See `mise tasks` for all available commands.
 
-```sh
-$ make test
-```
+## License
 
-In order to run the full suite of Acceptance tests, run `make testacc`.
-
-*Note:* Acceptance tests create real resources, and often cost money to run.
-
-```sh
-$ make testacc
-```
-
-Debugging the Provider
-----------------------
-
-To set Terraform log level:
-```
-set TF_LOG=TRACE
-```
-
-To view powershell commands that are sent:
-```
-set WINRMCP_DEBUG=TRUE
-```
+Mozilla Public License 2.0

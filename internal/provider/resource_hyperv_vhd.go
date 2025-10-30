@@ -41,15 +41,19 @@ func resourceHyperVVhd() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 				DiffSuppressFunc: func(k, oldValue, newValue string, d *schema.ResourceData) bool {
-					extension := path.Ext(newValue)
-					computedPath := strings.TrimSuffix(newValue, extension)
+					// Normalize path separators for comparison (Windows accepts both / and \)
+					oldNormalized := strings.ReplaceAll(oldValue, "\\", "/")
+					newNormalized := strings.ReplaceAll(newValue, "\\", "/")
+
+					extension := path.Ext(newNormalized)
+					computedPath := strings.TrimSuffix(newNormalized, extension)
 
 					// Ignore differencing
-					if strings.HasPrefix(strings.ToLower(oldValue), strings.ToLower(computedPath)) && strings.HasSuffix(strings.ToLower(oldValue), strings.ToLower(extension)) {
+					if strings.HasPrefix(strings.ToLower(oldNormalized), strings.ToLower(computedPath)) && strings.HasSuffix(strings.ToLower(oldNormalized), strings.ToLower(extension)) {
 						return true
 					}
 
-					if strings.EqualFold(oldValue, newValue) {
+					if strings.EqualFold(oldNormalized, newNormalized) {
 						return true
 					}
 

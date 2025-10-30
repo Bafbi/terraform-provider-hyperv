@@ -1,7 +1,8 @@
-package hyperv_winrm
+package hyperv
 
 import (
 	"github.com/taliesins/terraform-provider-hyperv/api"
+	ssh_helper "github.com/taliesins/terraform-provider-hyperv/api/ssh-helper"
 	winrm_helper "github.com/taliesins/terraform-provider-hyperv/api/winrm-helper"
 )
 
@@ -13,4 +14,9 @@ func New(clientConfig *ClientConfig) (*api.Provider, error) {
 
 type ClientConfig struct {
 	WinRmClient winrm_helper.Client
+}
+
+// ClientConfigSSH wraps an SSH client to be compatible with the HyperV API
+type ClientConfigSSH struct {
+	SSHClient ssh_helper.Client
 }
