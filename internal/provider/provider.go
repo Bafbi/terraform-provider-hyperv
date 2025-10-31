@@ -2,7 +2,6 @@ package provider
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 
 	"context"
@@ -271,43 +270,43 @@ func configure(version string, commit string, provider *schema.Provider) func(co
 		var diags diag.Diagnostics
 		var err error
 		var cacert []byte = nil
-		cacertPath := resourceData.Get("cacert_path").(string)
-		if cacertPath != "" {
-			if _, err := os.Stat(cacertPath); os.IsNotExist(err) {
-				return nil, diag.FromErr(fmt.Errorf("cacertPath does not exist - %s", cacertPath))
-			}
-
-			cacert, err = ioutil.ReadFile(cacertPath)
-			if err != nil {
-				return nil, diag.FromErr(err)
-			}
+	cacertPath := resourceData.Get("cacert_path").(string)
+	if cacertPath != "" {
+		if _, err := os.Stat(cacertPath); os.IsNotExist(err) {
+			return nil, diag.FromErr(fmt.Errorf("cacertPath does not exist - %s", cacertPath))
 		}
 
-		var cert []byte = nil
-		certPath := resourceData.Get("cert_path").(string)
-		if certPath != "" {
-			if _, err := os.Stat(certPath); os.IsNotExist(err) {
-				return nil, diag.FromErr(fmt.Errorf("certPath does not exist - %s", certPath))
-			}
+	cacert, err = os.ReadFile(cacertPath)
+	if err != nil {
+		return nil, diag.FromErr(err)
+	}
+}
 
-			cert, err = ioutil.ReadFile(certPath)
-			if err != nil {
-				return nil, diag.FromErr(err)
-			}
+var cert []byte = nil
+	certPath := resourceData.Get("cert_path").(string)
+	if certPath != "" {
+		if _, err := os.Stat(certPath); os.IsNotExist(err) {
+			return nil, diag.FromErr(fmt.Errorf("certPath does not exist - %s", certPath))
 		}
 
-		var key []byte = nil
-		keyPath := resourceData.Get("key_path").(string)
-		if keyPath != "" {
-			if _, err := os.Stat(keyPath); os.IsNotExist(err) {
-				return nil, diag.FromErr(fmt.Errorf("keyPath does not exist - %s", keyPath))
-			}
-
-			key, err = ioutil.ReadFile(keyPath)
-			if err != nil {
-				return nil, diag.FromErr(err)
-			}
+		cert, err = os.ReadFile(certPath)
+		if err != nil {
+			return nil, diag.FromErr(err)
 		}
+	}
+
+	var key []byte = nil
+	keyPath := resourceData.Get("key_path").(string)
+	if keyPath != "" {
+		if _, err := os.Stat(keyPath); os.IsNotExist(err) {
+			return nil, diag.FromErr(fmt.Errorf("keyPath does not exist - %s", keyPath))
+		}
+
+		key, err = os.ReadFile(keyPath)
+		if err != nil {
+			return nil, diag.FromErr(err)
+		}
+	}
 
 		terraformVersion := provider.TerraformVersion
 		if terraformVersion == "" {
