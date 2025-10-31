@@ -1,14 +1,19 @@
 terraform {
   required_providers {
     hyperv = {
-      version = "1.0.3"
-      source  = "registry.terraform.io/taliesins/hyperv"
+      source  = "Bafbi/hyperv"
+      version = ">= 1.3.0"
     }
   }
 }
 
+# SSH connection (Recommended)
 provider "hyperv" {
-
+  ssh                  = true
+  ssh_host             = "hyperv-host.example.com"
+  ssh_port             = 22
+  ssh_user             = "administrator"
+  ssh_private_key_path = "~/.ssh/id_rsa"
 }
 
 resource "hyperv_network_switch" "dmz_network_switch" {
@@ -16,17 +21,17 @@ resource "hyperv_network_switch" "dmz_network_switch" {
 }
 
 resource "hyperv_vhd" "web_server_g1_vhd" {
-  path = "c:\\web_server\\web_server_g1.vhdx" #Needs to be absolute path
-  size = 10737418240                          #10GB
+  path = "C:/web_server/web_server_g1.vhdx" # Forward slashes work!
+  size = 10737418240                        # 10GB
 }
 
 resource "hyperv_machine_instance" "web_server_g1" {
   name                   = "web_server_g1"
-  path                   = "c:\\web_server\\"
+  path                   = "C:/web_server/" # Forward slashes work!
   generation             = 1
   processor_count        = 2
   static_memory          = true
-  memory_startup_bytes   = 536870912 #512MB
+  memory_startup_bytes   = 536870912 # 512MB
   wait_for_state_timeout = 10
   wait_for_ips_timeout   = 10
 
@@ -55,8 +60,8 @@ resource "hyperv_machine_instance" "web_server_g1" {
 }
 
 resource "hyperv_vhd" "web_server_g2_vhd" {
-  path = "c:\\web_server\\web_server_g2.vhdx" #Needs to be absolute path
-  size = 10737418240                          #10GB
+  path = "C:/web_server/web_server_g2.vhdx" # Forward slashes work!
+  size = 10737418240                        # 10GB
 }
 
 resource "hyperv_machine_instance" "web_server_g2" {

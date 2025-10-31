@@ -1,13 +1,18 @@
 terraform {
   required_providers {
     hyperv = {
-      source  = "taliesins/hyperv"
-      version = ">= 1.0.3"
+      source  = "Bafbi/hyperv"
+      version = ">= 1.3.0"
     }
   }
 }
 
+# SSH connection (Recommended)
 provider "hyperv" {
+  ssh                  = true
+  ssh_host             = "hyperv-host.example.com"
+  ssh_user             = "administrator"
+  ssh_private_key_path = "~/.ssh/id_rsa"
 }
 
 resource "hyperv_network_switch" "default" {

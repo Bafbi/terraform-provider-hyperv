@@ -1,13 +1,18 @@
 terraform {
   required_providers {
     hyperv = {
-      source  = "taliesins/hyperv"
-      version = ">= 1.0.3"
+      source  = "Bafbi/hyperv"
+      version = ">= 1.3.0"
     }
   }
 }
 
+# SSH connection (Recommended)
 provider "hyperv" {
+  ssh                  = true
+  ssh_host             = "hyperv-host.example.com"
+  ssh_user             = "administrator"
+  ssh_private_key_path = "~/.ssh/id_rsa"
 }
 
 data "archive_file" "bootstrap" {
@@ -20,7 +25,7 @@ resource "hyperv_iso_image" "bootstrap" {
   volume_name               = "BOOTSTRAP"
   source_zip_file_path      = data.archive_file.bootstrap.output_path
   source_zip_file_path_hash = data.archive_file.bootstrap.output_sha
-  destination_iso_file_path = "c:\\web_server\\bootstrap.iso"
+  destination_iso_file_path = "C:/web_server/bootstrap.iso" # Forward slashes work!
   iso_media_type            = "dvdplusrw_duallayer"
   iso_file_system_type      = "unknown"
 }
@@ -43,8 +48,8 @@ resource "hyperv_network_switch" "dmz_network_switch" {
 }
 
 resource "hyperv_vhd" "web_server_g2_vhd" {
-  path = "c:\\web_server\\web_server_g2.vhdx" #Needs to be absolute path
-  size = 10737418240                          #10GB
+  path = "C:/web_server/web_server_g2.vhdx" # Forward slashes work!
+  size = 10737418240                        # 10GB
 }
 
 resource "hyperv_machine_instance" "default" {
@@ -65,8 +70,8 @@ resource "hyperv_machine_instance" "default" {
   memory_startup_bytes                    = 536870912
   notes                                   = ""
   processor_count                         = 1
-  smart_paging_file_path                  = "C:\\ProgramData\\Microsoft\\Windows\\Hyper-V"
-  snapshot_file_location                  = "C:\\ProgramData\\Microsoft\\Windows\\Hyper-V"
+  smart_paging_file_path                  = "C:/ProgramData/Microsoft/Windows/Hyper-V" # Forward slashes work!
+  snapshot_file_location                  = "C:/ProgramData/Microsoft/Windows/Hyper-V" # Forward slashes work!
   #dynamic_memory                         = false
   static_memory = true
   state         = "Running"

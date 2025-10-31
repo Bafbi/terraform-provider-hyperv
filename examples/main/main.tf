@@ -1,15 +1,30 @@
 terraform {
   required_providers {
     hyperv = {
-      source  = "taliesins/hyperv"
-      version = "1.0.4"
+      source  = "Bafbi/hyperv"
+      version = ">= 1.3.0"
     }
   }
 }
 
+# SSH connection (Recommended - works on Linux/macOS/Windows)
 provider "hyperv" {
-  # Configuration options
+  ssh                  = true
+  ssh_host             = "hyperv-host.example.com"
+  ssh_port             = 22
+  ssh_user             = "administrator"
+  ssh_private_key_path = "~/.ssh/id_rsa"
+  # Or use password: ssh_password = "YourPassword"
 }
+
+# Alternative WinRM configuration:
+# provider "hyperv" {
+#   user     = "Administrator"
+#   password = "P@ssw0rd"
+#   host     = "127.0.0.1"
+#   port     = 5986
+#   https    = true
+# }
 
 
 # variable "imagebuild" {
@@ -22,8 +37,8 @@ resource "hyperv_network_switch" "dmz_network_switch" {
 }
 
 resource "hyperv_vhd" "web_server_g1_vhd" {
-  path = "C:\\web_server\\web_server_g1.vhdx" #Needs to be absolute path
-  size = 10737418240                          #10GB
+  path = "C:/web_server/web_server_g1.vhdx" # Forward slashes work on Windows!
+  size = 10737418240                        # 10GB
 }
 
 resource "hyperv_machine_instance" "web_server_g1" {
@@ -60,8 +75,8 @@ resource "hyperv_machine_instance" "web_server_g1" {
 }
 
 resource "hyperv_vhd" "web_server_g2_vhd" {
-  path = "C:\\web_server\\web_server_g2.vhdx" #Needs to be absolute path
-  size = 10737418240                          #10GB
+  path = "C:/web_server/web_server_g2.vhdx" # Forward slashes work on Windows!
+  size = 10737418240                        # 10GB
 }
 
 resource "hyperv_machine_instance" "web_server_g2" {
