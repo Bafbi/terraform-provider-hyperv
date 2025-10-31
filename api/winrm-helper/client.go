@@ -45,7 +45,13 @@ func (c *ClientConfig) RunFireAndForgetScript(ctx context.Context, script *templ
 
 	log.Printf("[DEBUG] Running fire and forget script:\n%s\n", command)
 
-	_, _, _, err = powershell.RunPowershell(winrmClient.(*winrm.Client), c.ElevatedUser, c.ElevatedPassword, c.Vars, command)
+	client, ok := winrmClient.(*winrm.Client)
+	if !ok {
+		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		return fmt.Errorf("failed to cast winrmClient to *winrm.Client")
+	}
+
+	_, _, _, err = powershell.RunPowershell(client, c.ElevatedUser, c.ElevatedPassword, c.Vars, command)
 
 	err2 := c.WinRmClientPool.ReturnObject(ctx, winrmClient)
 
@@ -78,7 +84,13 @@ func (c *ClientConfig) RunScriptWithResult(ctx context.Context, script *template
 
 	log.Printf("[DEBUG] Running script with result:\n%s\n", command)
 
-	exitStatus, stdout, stderr, err := powershell.RunPowershell(winrmClient.(*winrm.Client), c.ElevatedUser, c.ElevatedPassword, c.Vars, command)
+	client, ok := winrmClient.(*winrm.Client)
+	if !ok {
+		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		return fmt.Errorf("failed to cast winrmClient to *winrm.Client")
+	}
+
+	exitStatus, stdout, stderr, err := powershell.RunPowershell(client, c.ElevatedUser, c.ElevatedPassword, c.Vars, command)
 
 	err2 := c.WinRmClientPool.ReturnObject(ctx, winrmClient)
 
@@ -109,7 +121,13 @@ func (c *ClientConfig) UploadFile(ctx context.Context, filePath string, remoteFi
 
 	log.Printf("[DEBUG] upload file %#v", filePath)
 
-	remoteFilePath, err = powershell.UploadFile(winrmClient.(*winrm.Client), filePath, remoteFilePath)
+	client, ok := winrmClient.(*winrm.Client)
+	if !ok {
+		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		return "", fmt.Errorf("failed to cast winrmClient to *winrm.Client")
+	}
+
+	remoteFilePath, err = powershell.UploadFile(client, filePath, remoteFilePath)
 
 	err2 := c.WinRmClientPool.ReturnObject(ctx, winrmClient)
 
@@ -135,7 +153,13 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 
 	log.Printf("[DEBUG] upload directory %#v", rootPath)
 
-	remoteRootPath, remoteAbsoluteFilePaths, err = powershell.UploadDirectory(winrmClient.(*winrm.Client), rootPath, excludeList)
+	client, ok := winrmClient.(*winrm.Client)
+	if !ok {
+		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		return "", []string{}, fmt.Errorf("failed to cast winrmClient to *winrm.Client")
+	}
+
+	remoteRootPath, remoteAbsoluteFilePaths, err = powershell.UploadDirectory(client, rootPath, excludeList)
 
 	err2 := c.WinRmClientPool.ReturnObject(ctx, winrmClient)
 
@@ -161,7 +185,13 @@ func (c *ClientConfig) FileExists(ctx context.Context, remoteFilePath string) (e
 
 	log.Printf("[DEBUG] check file exists %#v", remoteFilePath)
 
-	result, err := powershell.FileExists(winrmClient.(*winrm.Client), remoteFilePath)
+	client, ok := winrmClient.(*winrm.Client)
+	if !ok {
+		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		return false, fmt.Errorf("failed to cast winrmClient to *winrm.Client")
+	}
+
+	result, err := powershell.FileExists(client, remoteFilePath)
 
 	err2 := c.WinRmClientPool.ReturnObject(ctx, winrmClient)
 
@@ -191,7 +221,13 @@ func (c *ClientConfig) DirectoryExists(ctx context.Context, remoteDirectoryPath 
 
 	log.Printf("[DEBUG] check directory exists %#v", remoteDirectoryPath)
 
-	result, err := powershell.DirectoryExists(winrmClient.(*winrm.Client), remoteDirectoryPath)
+	client, ok := winrmClient.(*winrm.Client)
+	if !ok {
+		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		return false, fmt.Errorf("failed to cast winrmClient to *winrm.Client")
+	}
+
+	result, err := powershell.DirectoryExists(client, remoteDirectoryPath)
 
 	err2 := c.WinRmClientPool.ReturnObject(ctx, winrmClient)
 
@@ -221,7 +257,13 @@ func (c *ClientConfig) DeleteFileOrDirectory(ctx context.Context, remotePath str
 
 	log.Printf("[DEBUG] delete file or directory %#v", remotePath)
 
-	err = powershell.DeleteFileOrDirectory(winrmClient.(*winrm.Client), remotePath)
+	client, ok := winrmClient.(*winrm.Client)
+	if !ok {
+		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		return fmt.Errorf("failed to cast winrmClient to *winrm.Client")
+	}
+
+	err = powershell.DeleteFileOrDirectory(client, remotePath)
 
 	err2 := c.WinRmClientPool.ReturnObject(ctx, winrmClient)
 

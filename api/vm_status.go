@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"strconv"
 	"strings"
 
@@ -147,10 +148,19 @@ type VmStatus struct {
 }
 
 func ExpandVmStateWaitForState(d *schema.ResourceData) (uint32, uint32, error) {
-	waitForIpsTimeout := uint32((d.Get("wait_for_state_timeout")).(int))
-	waitForIpsPollPeriod := uint32((d.Get("wait_for_state_poll_period")).(int))
+	timeoutVal := d.Get("wait_for_state_timeout")
+	timeout, ok := timeoutVal.(int)
+	if !ok {
+		return 0, 0, fmt.Errorf("[ERROR][hyperv] wait_for_state_timeout should be an int - was '%+v'", timeoutVal)
+	}
 
-	return waitForIpsTimeout, waitForIpsPollPeriod, nil
+	pollPeriodVal := d.Get("wait_for_state_poll_period")
+	pollPeriod, ok := pollPeriodVal.(int)
+	if !ok {
+		return 0, 0, fmt.Errorf("[ERROR][hyperv] wait_for_state_poll_period should be an int - was '%+v'", pollPeriodVal)
+	}
+
+	return uint32(timeout), uint32(pollPeriod), nil
 }
 
 type HypervVmStatusClient interface {

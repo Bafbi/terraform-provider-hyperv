@@ -1,6 +1,6 @@
 [tools]
 go = "latest"
-golangci-lint = "latest"
+golangci-lint = "2.6.0"
 terraform = "latest"
 
 [env]

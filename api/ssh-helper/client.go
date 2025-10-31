@@ -300,15 +300,13 @@ func (c *ClientConfig) uploadViaCommands(client *ssh.Client, fileData []byte, re
 		// Create directory first
 		remoteDir := filepath.Dir(remoteFilePath)
 		if remoteDir != "" && remoteDir != "." {
-			dirSession, _ := client.NewSession()
-			if dirSession != nil {
+			dirSession, err := client.NewSession()
+			if err == nil && dirSession != nil {
 				dirCmd := fmt.Sprintf("powershell -Command \"New-Item -ItemType Directory -Force -Path '%s' | Out-Null\"", remoteDir)
-				dirSession.Run(dirCmd)
+				_ = dirSession.Run(dirCmd) // Ignore error, directory might exist
 				dirSession.Close()
 			}
-		}
-
-		// Write file via PowerShell
+		} // Write file via PowerShell
 		command = fmt.Sprintf(
 			"powershell -Command \"$bytes = [System.Convert]::FromBase64String('%s'); [System.IO.File]::WriteAllBytes('%s', $bytes)\"",
 			encoded,
@@ -318,9 +316,9 @@ func (c *ClientConfig) uploadViaCommands(client *ssh.Client, fileData []byte, re
 		// Use Unix commands
 		remoteDir := filepath.Dir(remoteFilePath)
 		if remoteDir != "" && remoteDir != "." {
-			dirSession, _ := client.NewSession()
-			if dirSession != nil {
-				dirSession.Run(fmt.Sprintf("mkdir -p '%s'", remoteDir))
+			dirSession, err := client.NewSession()
+			if err == nil && dirSession != nil {
+				_ = dirSession.Run(fmt.Sprintf("mkdir -p '%s'", remoteDir)) // Ignore error, directory might exist
 				dirSession.Close()
 			}
 		}
@@ -425,10 +423,8 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 			mkdirCmd = fmt.Sprintf("mkdir -p %s", remoteDir)
 		}
 
-		session.Run(mkdirCmd)
-		session.Close()
-
-		// Upload the file
+		_ = session.Run(mkdirCmd) // Ignore error, directory might exist
+		session.Close()           // Upload the file
 		_, err = c.UploadFile(ctx, path, remotePath)
 		if err != nil {
 			return err
