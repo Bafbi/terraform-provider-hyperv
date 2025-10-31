@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - uses: jdx/mise-action@v2
         with:
@@ -43,7 +43,7 @@ jobs:
       - run: go build -v .
       
       - name: Run linters
-        uses: golangci/golangci-lint-action@v6
+        uses: golangci/golangci-lint-action@v8
         with:
           version: latest
 
@@ -53,7 +53,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - uses: jdx/mise-action@v2
         with:
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       
       - uses: jdx/mise-action@v2
         with:
@@ -118,47 +118,47 @@ jobs:
   # Run acceptance tests in a matrix with Terraform CLI versions
   # Note: This provider requires Windows Hyper-V, so acceptance tests
   # are configured but may need to be run in a separate Windows environment
-  test-acceptance:
-    name: Terraform Provider Acceptance Tests
-    needs: build
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    strategy:
-      fail-fast: false
-      matrix:
-        # List whatever Terraform versions here you would like to support
-        terraform:
-          - '1.9.*'
-          - '1.10.*'
-          - '1.11.*'
-          - '1.12.*'
-          - '1.13.*'
-    steps:
-      - uses: actions/checkout@v4
+  # test-acceptance:
+  #   name: Terraform Provider Acceptance Tests
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 15
+  #   strategy:
+  #     fail-fast: false
+  #     matrix:
+  #       # List whatever Terraform versions here you would like to support
+  #       terraform:
+  #         - '1.9.*'
+  #         - '1.10.*'
+  #         - '1.11.*'
+  #         - '1.12.*'
+  #         - '1.13.*'
+  #   steps:
+  #     - uses: actions/checkout@v4
       
-      - uses: jdx/mise-action@v2
-        with:
-          version: 2025.10.20
-          install: true
-          cache: true
+  #     - uses: jdx/mise-action@v2
+  #       with:
+  #         version: 2025.10.20
+  #         install: true
+  #         cache: true
       
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ matrix.terraform }}
-          terraform_wrapper: false
+  #     - uses: hashicorp/setup-terraform@v3
+  #       with:
+  #         terraform_version: ${{ matrix.terraform }}
+  #         terraform_wrapper: false
       
-      - run: go mod download
+  #     - run: go mod download
       
-      # Note: Acceptance tests require a Windows Hyper-V host to run against
-      # These tests are skipped in CI but can be run locally with TF_ACC=1
-      - name: Run acceptance tests
-        env:
-          TF_ACC: "1"
-          # Skip tests that require actual Hyper-V infrastructure
-          TF_ACC_TERRAFORM_VERSION: ${{ matrix.terraform }}
-        run: |
-          echo "Acceptance tests require Windows Hyper-V host"
-          echo "Run locally with: TF_ACC=1 go test -v ./internal/provider/"
-          # Uncomment when you have a Windows runner with Hyper-V
-          # go test -v -cover ./internal/provider/
-        timeout-minutes: 10
+  #     # Note: Acceptance tests require a Windows Hyper-V host to run against
+  #     # These tests are skipped in CI but can be run locally with TF_ACC=1
+  #     - name: Run acceptance tests
+  #       env:
+  #         TF_ACC: "1"
+  #         # Skip tests that require actual Hyper-V infrastructure
+  #         TF_ACC_TERRAFORM_VERSION: ${{ matrix.terraform }}
+  #       run: |
+  #         echo "Acceptance tests require Windows Hyper-V host"
+  #         echo "Run locally with: TF_ACC=1 go test -v ./internal/provider/"
+  #         # Uncomment when you have a Windows runner with Hyper-V
+  #         # go test -v -cover ./internal/provider/
+  #       timeout-minutes: 10
