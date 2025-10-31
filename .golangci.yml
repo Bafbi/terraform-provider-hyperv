@@ -6,7 +6,6 @@ linters:
     - durationcheck
     - errcheck
     - forcetypeassert
-    - godot
     - ineffassign
     - makezero
     - misspell
