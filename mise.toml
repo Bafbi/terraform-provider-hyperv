@@ -75,55 +75,28 @@ run = """
 echo "Setting up terraform-provider-hyperv development environment..."
 go mod download
 go mod tidy
-
-# Generate .terraformrc with dynamic paths
-# Use GOBIN if set, otherwise use GOPATH/bin
-GOBIN=$(go env GOBIN)
-if [ -z "$GOBIN" ]; then
-  GOPATH=$(go env GOPATH)
-  GOBIN="$GOPATH/bin"
-fi
-
-cat > .terraformrc << EOF
-provider_installation {
-  dev_overrides {
-    "registry.terraform.io/taliesins/hyperv" = "$GOBIN"
-  }
-
-  # For all other providers, install them directly from their origin provider
-  # registries as normal.
-  direct {}
-}
-EOF
-
-echo "✅ Generated .terraformrc with GOBIN=$GOBIN"
-echo "✅ Setup complete! Run 'mise run install' to build and install the provider."
+echo "✅ Setup complete! Generating .terraformrc..."
+mise run config
+echo "✅ Setup finished. Run 'mise run install' to build and install the provider."
 """
 
 [tasks.config]
 description = "Generate .terraformrc with dynamic paths"
 run = """
-# Generate .terraformrc with dynamic paths
-# Use GOBIN if set, otherwise use GOPATH/bin
+# Generate .terraformrc using template
 GOBIN=$(go env GOBIN)
 if [ -z "$GOBIN" ]; then
   GOPATH=$(go env GOPATH)
   GOBIN="$GOPATH/bin"
 fi
 
-cat > .terraformrc << EOF
-provider_installation {
-  dev_overrides {
-    "registry.terraform.io/taliesins/hyperv" = "$GOBIN"
-  }
-
-  # For all other providers, install them directly from their origin provider
-  # registries as normal.
-  direct {}
-}
-EOF
-
-echo "✅ Generated .terraformrc with GOBIN=$GOBIN"
+if [ -f ".terraformrc.tpl" ]; then
+  sed "s|__GOBIN__|$GOBIN|g" .terraformrc.tpl > .terraformrc
+  echo "✅ Generated .terraformrc from template with GOBIN=$GOBIN"
+else
+  echo "❌ Template .terraformrc.tpl not found in workspace root"
+  exit 1
+fi
 """
 
 [tasks.verify]
