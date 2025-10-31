@@ -224,16 +224,45 @@ func ExpandGen2BootOrder(bootOrders []interface{}) ([]Gen2BootOrder, error) {
 
 		log.Printf("[DEBUG] bootOrder = [%+v]", bootOrder)
 
+		bootType, ok := bootOrder["boot_type"].(string)
+		if !ok {
+			return nil, fmt.Errorf("[ERROR][hyperv] boot_type should be a string")
+		}
+		networkAdapterName, ok := bootOrder["network_adapter_name"].(string)
+		if !ok {
+			return nil, fmt.Errorf("[ERROR][hyperv] network_adapter_name should be a string")
+		}
+		switchName, ok := bootOrder["switch_name"].(string)
+		if !ok {
+			return nil, fmt.Errorf("[ERROR][hyperv] switch_name should be a string")
+		}
+		macAddress, ok := bootOrder["mac_address"].(string)
+		if !ok {
+			return nil, fmt.Errorf("[ERROR][hyperv] mac_address should be a string")
+		}
+		path, ok := bootOrder["path"].(string)
+		if !ok {
+			return nil, fmt.Errorf("[ERROR][hyperv] path should be a string")
+		}
+		controllerNumber, ok := bootOrder["controller_number"].(int)
+		if !ok {
+			return nil, fmt.Errorf("[ERROR][hyperv] controller_number should be an int")
+		}
+		controllerLocation, ok := bootOrder["controller_location"].(int)
+		if !ok {
+			return nil, fmt.Errorf("[ERROR][hyperv] controller_location should be an int")
+		}
+
 		expandedGen2BootOrder := Gen2BootOrder{
-			Type: ToGen2BootType(bootOrder["boot_type"].(string)),
+			Type: ToGen2BootType(bootType),
 
-			NetworkAdapterName: bootOrder["network_adapter_name"].(string),
-			SwitchName:         bootOrder["switch_name"].(string),
-			MacAddress:         bootOrder["mac_address"].(string),
+			NetworkAdapterName: networkAdapterName,
+			SwitchName:         switchName,
+			MacAddress:         macAddress,
 
-			Path:               bootOrder["path"].(string),
-			ControllerNumber:   bootOrder["controller_number"].(int),
-			ControllerLocation: bootOrder["controller_location"].(int),
+			Path:               path,
+			ControllerNumber:   controllerNumber,
+			ControllerLocation: controllerLocation,
 		}
 
 		gen2bootOrders = append(gen2bootOrders, expandedGen2BootOrder)
@@ -246,7 +275,10 @@ func ExpandVmFirmwares(d *schema.ResourceData) ([]VmFirmware, error) {
 	expandedVmFirmwares := make([]VmFirmware, 0)
 
 	if v, ok := d.GetOk("vm_firmware"); ok {
-		vmFirmwares := v.([]interface{})
+		vmFirmwares, ok := v.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("[ERROR][hyperv] vm_firmware should be a list - was '%+v'", v)
+		}
 		for _, firmware := range vmFirmwares {
 			firmware, ok := firmware.(map[string]interface{})
 			if !ok {
@@ -255,18 +287,43 @@ func ExpandVmFirmwares(d *schema.ResourceData) ([]VmFirmware, error) {
 
 			log.Printf("[DEBUG] firmware = [%+v]", firmware)
 
-			bootOrders, err := ExpandGen2BootOrder(firmware["boot_order"].([]interface{}))
+			bootOrderInterface, ok := firmware["boot_order"].([]interface{})
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] boot_order should be a list")
+			}
+			bootOrders, err := ExpandGen2BootOrder(bootOrderInterface)
 			if err != nil {
 				return nil, err
 			}
 
+			enableSecureBoot, ok := firmware["enable_secure_boot"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] enable_secure_boot should be a string")
+			}
+			secureBootTemplate, ok := firmware["secure_boot_template"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] secure_boot_template should be a string")
+			}
+			preferredNetworkBootProtocol, ok := firmware["preferred_network_boot_protocol"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] preferred_network_boot_protocol should be a string")
+			}
+			consoleMode, ok := firmware["console_mode"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] console_mode should be a string")
+			}
+			pauseAfterBootFailure, ok := firmware["pause_after_boot_failure"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] pause_after_boot_failure should be a string")
+			}
+
 			expandedVmFirmware := VmFirmware{
 				BootOrders:                   bootOrders,
-				EnableSecureBoot:             ToOnOffState(firmware["enable_secure_boot"].(string)),
-				SecureBootTemplate:           firmware["secure_boot_template"].(string),
-				PreferredNetworkBootProtocol: ToIPProtocolPreference(firmware["preferred_network_boot_protocol"].(string)),
-				ConsoleMode:                  ToConsoleModeType(firmware["console_mode"].(string)),
-				PauseAfterBootFailure:        ToOnOffState(firmware["pause_after_boot_failure"].(string)),
+				EnableSecureBoot:             ToOnOffState(enableSecureBoot),
+				SecureBootTemplate:           secureBootTemplate,
+				PreferredNetworkBootProtocol: ToIPProtocolPreference(preferredNetworkBootProtocol),
+				ConsoleMode:                  ToConsoleModeType(consoleMode),
+				PauseAfterBootFailure:        ToOnOffState(pauseAfterBootFailure),
 			}
 
 			expandedVmFirmwares = append(expandedVmFirmwares, expandedVmFirmware)

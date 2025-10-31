@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
@@ -24,7 +25,10 @@ func DefaultVmIntegrationServices() (interface{}, error) {
 
 func getDefaultValueForVmIntegrationService(integrationServiceKey string, _ *schema.ResourceData) bool {
 	v, _ := DefaultVmIntegrationServices()
-	integrationServices := v.(map[string]interface{})
+	integrationServices, ok := v.(map[string]interface{})
+	if !ok {
+		return false
+	}
 	if integrationServiceValueInterface, found := integrationServices[integrationServiceKey]; found {
 		if integrationServiceValue, ok := integrationServiceValueInterface.(bool); ok {
 			return integrationServiceValue
@@ -86,12 +90,19 @@ func ExpandIntegrationServices(d *schema.ResourceData) ([]VmIntegrationService, 
 	expandedIntegrationServices := make([]VmIntegrationService, 0)
 
 	if v, ok := d.GetOk("integration_services"); ok {
-		integrationServices := v.(map[string]interface{})
+		integrationServices, ok := v.(map[string]interface{})
+		if !ok {
+			return nil, fmt.Errorf("[ERROR][hyperv] integration_services should be a map - was '%+v'", v)
+		}
 
 		for integrationServiceKey, integrationServiceValue := range integrationServices {
+			enabled, ok := integrationServiceValue.(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] integration service value should be a bool - was '%+v'", integrationServiceValue)
+			}
 			integrationService := VmIntegrationService{
 				Name:    integrationServiceKey,
-				Enabled: integrationServiceValue.(bool),
+				Enabled: enabled,
 			}
 
 			expandedIntegrationServices = append(expandedIntegrationServices, integrationService)

@@ -11,18 +11,38 @@ func ExpandDvdDrives(d *schema.ResourceData) ([]VmDvdDrive, error) {
 	expandedDvdDrives := make([]VmDvdDrive, 0)
 
 	if v, ok := d.GetOk("dvd_drives"); ok {
-		dvdDrives := v.([]interface{})
+		dvdDrives, ok := v.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("[ERROR][hyperv] dvd_drives should be a list - was '%+v'", v)
+		}
 		for _, dvdDrive := range dvdDrives {
 			dvdDrive, ok := dvdDrive.(map[string]interface{})
 			if !ok {
 				return nil, fmt.Errorf("[ERROR][hyperv] dvd_drives should be a Hash - was '%+v'", dvdDrive)
 			}
 
+			controllerNumber, ok := dvdDrive["controller_number"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] controller_number should be an int")
+			}
+			controllerLocation, ok := dvdDrive["controller_location"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] controller_location should be an int")
+			}
+			path, ok := dvdDrive["path"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] path should be a string")
+			}
+			resourcePoolName, ok := dvdDrive["resource_pool_name"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] resource_pool_name should be a string")
+			}
+
 			expandedDvdDrive := VmDvdDrive{
-				ControllerNumber:   dvdDrive["controller_number"].(int),
-				ControllerLocation: dvdDrive["controller_location"].(int),
-				Path:               dvdDrive["path"].(string),
-				ResourcePoolName:   dvdDrive["resource_pool_name"].(string),
+				ControllerNumber:   controllerNumber,
+				ControllerLocation: controllerLocation,
+				Path:               path,
+				ResourcePoolName:   resourcePoolName,
 			}
 
 			expandedDvdDrives = append(expandedDvdDrives, expandedDvdDrive)

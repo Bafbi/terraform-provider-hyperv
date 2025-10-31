@@ -153,7 +153,10 @@ func ExpandHardDiskDrives(d *schema.ResourceData) ([]VmHardDiskDrive, error) {
 	expandedHardDiskDrives := make([]VmHardDiskDrive, 0)
 
 	if v, ok := d.GetOk("hard_disk_drives"); ok {
-		hardDiskDrives := v.([]interface{})
+		hardDiskDrives, ok := v.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("[ERROR][hyperv] hard_disk_drives should be a list - was '%+v'", v)
+		}
 
 		for _, hardDiskDrive := range hardDiskDrives {
 			hardDiskDrive, ok := hardDiskDrive.(map[string]interface{})
@@ -161,18 +164,63 @@ func ExpandHardDiskDrives(d *schema.ResourceData) ([]VmHardDiskDrive, error) {
 				return nil, fmt.Errorf("[ERROR][hyperv] hard_disk_drives should be a Hash - was '%+v'", hardDiskDrive)
 			}
 
+			controllerType, ok := hardDiskDrive["controller_type"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] controller_type should be a string")
+			}
+			controllerNumber, ok := hardDiskDrive["controller_number"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] controller_number should be an int")
+			}
+			controllerLocation, ok := hardDiskDrive["controller_location"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] controller_location should be an int")
+			}
+			path, ok := hardDiskDrive["path"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] path should be a string")
+			}
+			diskNumber, ok := hardDiskDrive["disk_number"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] disk_number should be an int")
+			}
+			resourcePoolName, ok := hardDiskDrive["resource_pool_name"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] resource_pool_name should be a string")
+			}
+			supportPersistentReservations, ok := hardDiskDrive["support_persistent_reservations"].(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] support_persistent_reservations should be a bool")
+			}
+			maximumIops, ok := hardDiskDrive["maximum_iops"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] maximum_iops should be an int")
+			}
+			minimumIops, ok := hardDiskDrive["minimum_iops"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] minimum_iops should be an int")
+			}
+			qosPolicyId, ok := hardDiskDrive["qos_policy_id"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] qos_policy_id should be a string")
+			}
+			overrideCacheAttributes, ok := hardDiskDrive["override_cache_attributes"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] override_cache_attributes should be a string")
+			}
+
 			expandedHardDiskDrive := VmHardDiskDrive{
-				ControllerType:                ToControllerType(hardDiskDrive["controller_type"].(string)),
-				ControllerNumber:              int32(hardDiskDrive["controller_number"].(int)),
-				ControllerLocation:            int32(hardDiskDrive["controller_location"].(int)),
-				Path:                          hardDiskDrive["path"].(string),
-				DiskNumber:                    uint32(hardDiskDrive["disk_number"].(int)),
-				ResourcePoolName:              hardDiskDrive["resource_pool_name"].(string),
-				SupportPersistentReservations: hardDiskDrive["support_persistent_reservations"].(bool),
-				MaximumIops:                   uint64(hardDiskDrive["maximum_iops"].(int)),
-				MinimumIops:                   uint64(hardDiskDrive["minimum_iops"].(int)),
-				QosPolicyId:                   hardDiskDrive["qos_policy_id"].(string),
-				OverrideCacheAttributes:       ToCacheAttributes(hardDiskDrive["override_cache_attributes"].(string)),
+				ControllerType:                ToControllerType(controllerType),
+				ControllerNumber:              int32(controllerNumber),
+				ControllerLocation:            int32(controllerLocation),
+				Path:                          path,
+				DiskNumber:                    uint32(diskNumber),
+				ResourcePoolName:              resourcePoolName,
+				SupportPersistentReservations: supportPersistentReservations,
+				MaximumIops:                   uint64(maximumIops),
+				MinimumIops:                   uint64(minimumIops),
+				QosPolicyId:                   qosPolicyId,
+				OverrideCacheAttributes:       ToCacheAttributes(overrideCacheAttributes),
 			}
 
 			expandedHardDiskDrives = append(expandedHardDiskDrives, expandedHardDiskDrive)

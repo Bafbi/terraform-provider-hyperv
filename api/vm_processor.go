@@ -51,7 +51,10 @@ func ExpandVmProcessors(d *schema.ResourceData) ([]VmProcessor, error) {
 	expandedVmProcessors := make([]VmProcessor, 0)
 
 	if v, ok := d.GetOk("vm_processor"); ok {
-		vmProcessors := v.([]interface{})
+		vmProcessors, ok := v.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("[ERROR][hyperv] vm_processor should be a list - was '%+v'", v)
+		}
 		for _, processor := range vmProcessors {
 			processor, ok := processor.(map[string]interface{})
 			if !ok {
@@ -60,17 +63,58 @@ func ExpandVmProcessors(d *schema.ResourceData) ([]VmProcessor, error) {
 
 			log.Printf("[DEBUG] processor =  [%+v]", processor)
 
+			compatibilityForMigrationEnabled, ok := processor["compatibility_for_migration_enabled"].(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] compatibility_for_migration_enabled should be a bool")
+			}
+			compatibilityForOlderOperatingSystemsEnabled, ok := processor["compatibility_for_older_operating_systems_enabled"].(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] compatibility_for_older_operating_systems_enabled should be a bool")
+			}
+			hwThreadCountPerCore, ok := processor["hw_thread_count_per_core"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] hw_thread_count_per_core should be an int")
+			}
+			maximum, ok := processor["maximum"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] maximum should be an int")
+			}
+			reserve, ok := processor["reserve"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] reserve should be an int")
+			}
+			relativeWeight, ok := processor["relative_weight"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] relative_weight should be an int")
+			}
+			maximumCountPerNumaNode, ok := processor["maximum_count_per_numa_node"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] maximum_count_per_numa_node should be an int")
+			}
+			maximumCountPerNumaSocket, ok := processor["maximum_count_per_numa_socket"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] maximum_count_per_numa_socket should be an int")
+			}
+			enableHostResourceProtection, ok := processor["enable_host_resource_protection"].(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] enable_host_resource_protection should be a bool")
+			}
+			exposeVirtualizationExtensions, ok := processor["expose_virtualization_extensions"].(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] expose_virtualization_extensions should be a bool")
+			}
+
 			expandedVmProcessor := VmProcessor{
-				CompatibilityForMigrationEnabled:             processor["compatibility_for_migration_enabled"].(bool),
-				CompatibilityForOlderOperatingSystemsEnabled: processor["compatibility_for_older_operating_systems_enabled"].(bool),
-				HwThreadCountPerCore:                         int64(processor["hw_thread_count_per_core"].(int)),
-				Maximum:                                      int64(processor["maximum"].(int)),
-				Reserve:                                      int64(processor["reserve"].(int)),
-				RelativeWeight:                               int32(processor["relative_weight"].(int)),
-				MaximumCountPerNumaNode:                      int32(processor["maximum_count_per_numa_node"].(int)),
-				MaximumCountPerNumaSocket:                    int32(processor["maximum_count_per_numa_socket"].(int)),
-				EnableHostResourceProtection:                 processor["enable_host_resource_protection"].(bool),
-				ExposeVirtualizationExtensions:               processor["expose_virtualization_extensions"].(bool),
+				CompatibilityForMigrationEnabled:             compatibilityForMigrationEnabled,
+				CompatibilityForOlderOperatingSystemsEnabled: compatibilityForOlderOperatingSystemsEnabled,
+				HwThreadCountPerCore:                         int64(hwThreadCountPerCore),
+				Maximum:                                      int64(maximum),
+				Reserve:                                      int64(reserve),
+				RelativeWeight:                               int32(relativeWeight),
+				MaximumCountPerNumaNode:                      int32(maximumCountPerNumaNode),
+				MaximumCountPerNumaSocket:                    int32(maximumCountPerNumaSocket),
+				EnableHostResourceProtection:                 enableHostResourceProtection,
+				ExposeVirtualizationExtensions:               exposeVirtualizationExtensions,
 			}
 
 			expandedVmProcessors = append(expandedVmProcessors, expandedVmProcessor)

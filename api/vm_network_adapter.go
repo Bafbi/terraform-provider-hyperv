@@ -143,7 +143,10 @@ func ExpandNetworkAdapters(d *schema.ResourceData) ([]VmNetworkAdapter, error) {
 	expandedNetworkAdapters := make([]VmNetworkAdapter, 0)
 
 	if v, ok := d.GetOk("network_adaptors"); ok {
-		networkAdapters := v.([]interface{})
+		networkAdapters, ok := v.([]interface{})
+		if !ok {
+			return nil, fmt.Errorf("[ERROR][hyperv] network_adaptors should be a list - was '%+v'", v)
+		}
 
 		for _, networkAdapter := range networkAdapters {
 			networkAdapter, ok := networkAdapter.(map[string]interface{})
@@ -151,60 +154,232 @@ func ExpandNetworkAdapters(d *schema.ResourceData) ([]VmNetworkAdapter, error) {
 				return nil, fmt.Errorf("[ERROR][hyperv] network_adaptors should be a Hash - was '%+v'", networkAdapter)
 			}
 
-			mandatoryFeatureIdSet := networkAdapter["mandatory_feature_id"].(*schema.Set).List()
+			mandatoryFeatureIdVal := networkAdapter["mandatory_feature_id"]
+			mandatoryFeatureIdSet, ok := mandatoryFeatureIdVal.(*schema.Set)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] mandatory_feature_id should be a Set - was '%+v'", mandatoryFeatureIdVal)
+			}
 			mandatoryFeatureIds := make([]string, 0)
-			for _, mandatoryFeatureId := range mandatoryFeatureIdSet {
-				mandatoryFeatureIds = append(mandatoryFeatureIds, mandatoryFeatureId.(string))
+			for _, mandatoryFeatureId := range mandatoryFeatureIdSet.List() {
+				featureId, ok := mandatoryFeatureId.(string)
+				if !ok {
+					return nil, fmt.Errorf("[ERROR][hyperv] mandatory_feature_id item should be a string - was '%+v'", mandatoryFeatureId)
+				}
+				mandatoryFeatureIds = append(mandatoryFeatureIds, featureId)
 			}
 
-			ipAddressesSet := networkAdapter["ip_addresses"].([]interface{})
+			ipAddressesVal := networkAdapter["ip_addresses"]
+			ipAddressesSet, ok := ipAddressesVal.([]interface{})
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] ip_addresses should be a list - was '%+v'", ipAddressesVal)
+			}
 			ipAddresses := make([]string, 0)
 			for _, ipAddress := range ipAddressesSet {
-				ipAddresses = append(ipAddresses, ipAddress.(string))
+				ipAddr, ok := ipAddress.(string)
+				if !ok {
+					return nil, fmt.Errorf("[ERROR][hyperv] ip_address item should be a string - was '%+v'", ipAddress)
+				}
+				ipAddresses = append(ipAddresses, ipAddr)
+			}
+
+			name, ok := networkAdapter["name"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] name should be a string")
+			}
+			switchName, ok := networkAdapter["switch_name"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] switch_name should be a string")
+			}
+			managementOs, ok := networkAdapter["management_os"].(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] management_os should be a bool")
+			}
+			isLegacy, ok := networkAdapter["is_legacy"].(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] is_legacy should be a bool")
+			}
+			dynamicMacAddress, ok := networkAdapter["dynamic_mac_address"].(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] dynamic_mac_address should be a bool")
+			}
+			staticMacAddress, ok := networkAdapter["static_mac_address"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] static_mac_address should be a string")
+			}
+			macAddressSpoofing, ok := networkAdapter["mac_address_spoofing"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] mac_address_spoofing should be a string")
+			}
+			dhcpGuard, ok := networkAdapter["dhcp_guard"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] dhcp_guard should be a string")
+			}
+			routerGuard, ok := networkAdapter["router_guard"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] router_guard should be a string")
+			}
+			portMirroring, ok := networkAdapter["port_mirroring"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] port_mirroring should be a string")
+			}
+			ieeePriorityTag, ok := networkAdapter["ieee_priority_tag"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] ieee_priority_tag should be a string")
+			}
+			vmqWeight, ok := networkAdapter["vmq_weight"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] vmq_weight should be an int")
+			}
+			iovQueuePairsRequested, ok := networkAdapter["iov_queue_pairs_requested"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] iov_queue_pairs_requested should be an int")
+			}
+			iovInterruptModeration, ok := networkAdapter["iov_interrupt_moderation"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] iov_interrupt_moderation should be a string")
+			}
+			iovWeight, ok := networkAdapter["iov_weight"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] iov_weight should be an int")
+			}
+			ipsecOffloadMaxSA, ok := networkAdapter["ipsec_offload_maximum_security_association"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] ipsec_offload_maximum_security_association should be an int")
+			}
+			maximumBandwidth, ok := networkAdapter["maximum_bandwidth"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] maximum_bandwidth should be an int")
+			}
+			minimumBandwidthAbsolute, ok := networkAdapter["minimum_bandwidth_absolute"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] minimum_bandwidth_absolute should be an int")
+			}
+			minimumBandwidthWeight, ok := networkAdapter["minimum_bandwidth_weight"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] minimum_bandwidth_weight should be an int")
+			}
+			resourcePoolName, ok := networkAdapter["resource_pool_name"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] resource_pool_name should be a string")
+			}
+			testReplicaPoolName, ok := networkAdapter["test_replica_pool_name"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] test_replica_pool_name should be a string")
+			}
+			testReplicaSwitchName, ok := networkAdapter["test_replica_switch_name"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] test_replica_switch_name should be a string")
+			}
+			virtualSubnetId, ok := networkAdapter["virtual_subnet_id"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] virtual_subnet_id should be an int")
+			}
+			allowTeaming, ok := networkAdapter["allow_teaming"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] allow_teaming should be a string")
+			}
+			notMonitoredInCluster, ok := networkAdapter["not_monitored_in_cluster"].(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] not_monitored_in_cluster should be a bool")
+			}
+			stormLimit, ok := networkAdapter["storm_limit"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] storm_limit should be an int")
+			}
+			dynamicIpAddressLimit, ok := networkAdapter["dynamic_ip_address_limit"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] dynamic_ip_address_limit should be an int")
+			}
+			deviceNaming, ok := networkAdapter["device_naming"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] device_naming should be a string")
+			}
+			fixSpeed10G, ok := networkAdapter["fix_speed_10g"].(string)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] fix_speed_10g should be a string")
+			}
+			packetDirectNumProcs, ok := networkAdapter["packet_direct_num_procs"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] packet_direct_num_procs should be an int")
+			}
+			packetDirectModerationCount, ok := networkAdapter["packet_direct_moderation_count"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] packet_direct_moderation_count should be an int")
+			}
+			packetDirectModerationInterval, ok := networkAdapter["packet_direct_moderation_interval"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] packet_direct_moderation_interval should be an int")
+			}
+			vrssEnabled, ok := networkAdapter["vrss_enabled"].(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] vrss_enabled should be a bool")
 			}
 
 			expandedNetworkAdapter := VmNetworkAdapter{
-				Name:                                   networkAdapter["name"].(string),
-				SwitchName:                             networkAdapter["switch_name"].(string),
-				ManagementOs:                           networkAdapter["management_os"].(bool),
-				IsLegacy:                               networkAdapter["is_legacy"].(bool),
-				DynamicMacAddress:                      networkAdapter["dynamic_mac_address"].(bool),
-				StaticMacAddress:                       networkAdapter["static_mac_address"].(string),
-				MacAddressSpoofing:                     ToOnOffState(networkAdapter["mac_address_spoofing"].(string)),
-				DhcpGuard:                              ToOnOffState(networkAdapter["dhcp_guard"].(string)),
-				RouterGuard:                            ToOnOffState(networkAdapter["router_guard"].(string)),
-				PortMirroring:                          ToPortMirroring(networkAdapter["port_mirroring"].(string)),
-				IeeePriorityTag:                        ToOnOffState(networkAdapter["ieee_priority_tag"].(string)),
-				VmqWeight:                              networkAdapter["vmq_weight"].(int),
-				IovQueuePairsRequested:                 networkAdapter["iov_queue_pairs_requested"].(int),
-				IovInterruptModeration:                 ToIovInterruptModerationValue(networkAdapter["iov_interrupt_moderation"].(string)),
-				IovWeight:                              networkAdapter["iov_weight"].(int),
-				IpsecOffloadMaximumSecurityAssociation: networkAdapter["ipsec_offload_maximum_security_association"].(int),
-				MaximumBandwidth:                       networkAdapter["maximum_bandwidth"].(int),
-				MinimumBandwidthAbsolute:               networkAdapter["minimum_bandwidth_absolute"].(int),
-				MinimumBandwidthWeight:                 networkAdapter["minimum_bandwidth_weight"].(int),
+				Name:                                   name,
+				SwitchName:                             switchName,
+				ManagementOs:                           managementOs,
+				IsLegacy:                               isLegacy,
+				DynamicMacAddress:                      dynamicMacAddress,
+				StaticMacAddress:                       staticMacAddress,
+				MacAddressSpoofing:                     ToOnOffState(macAddressSpoofing),
+				DhcpGuard:                              ToOnOffState(dhcpGuard),
+				RouterGuard:                            ToOnOffState(routerGuard),
+				PortMirroring:                          ToPortMirroring(portMirroring),
+				IeeePriorityTag:                        ToOnOffState(ieeePriorityTag),
+				VmqWeight:                              vmqWeight,
+				IovQueuePairsRequested:                 iovQueuePairsRequested,
+				IovInterruptModeration:                 ToIovInterruptModerationValue(iovInterruptModeration),
+				IovWeight:                              iovWeight,
+				IpsecOffloadMaximumSecurityAssociation: ipsecOffloadMaxSA,
+				MaximumBandwidth:                       maximumBandwidth,
+				MinimumBandwidthAbsolute:               minimumBandwidthAbsolute,
+				MinimumBandwidthWeight:                 minimumBandwidthWeight,
 				MandatoryFeatureId:                     mandatoryFeatureIds,
-				ResourcePoolName:                       networkAdapter["resource_pool_name"].(string),
-				TestReplicaPoolName:                    networkAdapter["test_replica_pool_name"].(string),
-				TestReplicaSwitchName:                  networkAdapter["test_replica_switch_name"].(string),
-				VirtualSubnetId:                        networkAdapter["virtual_subnet_id"].(int),
-				AllowTeaming:                           ToOnOffState(networkAdapter["allow_teaming"].(string)),
-				NotMonitoredInCluster:                  networkAdapter["not_monitored_in_cluster"].(bool),
-				StormLimit:                             networkAdapter["storm_limit"].(int),
-				DynamicIpAddressLimit:                  networkAdapter["dynamic_ip_address_limit"].(int),
-				DeviceNaming:                           ToOnOffState(networkAdapter["device_naming"].(string)),
-				FixSpeed10G:                            ToOnOffState(networkAdapter["fix_speed_10g"].(string)),
-				PacketDirectNumProcs:                   networkAdapter["packet_direct_num_procs"].(int),
-				PacketDirectModerationCount:            networkAdapter["packet_direct_moderation_count"].(int),
-				PacketDirectModerationInterval:         networkAdapter["packet_direct_moderation_interval"].(int),
-				VrssEnabled:                            networkAdapter["vrss_enabled"].(bool),
-				VmmqEnabled:                            networkAdapter["vmmq_enabled"].(bool),
-				VmmqQueuePairs:                         networkAdapter["vmmq_queue_pairs"].(int),
-				VlanAccess:                             networkAdapter["vlan_access"].(bool),
-				VlanId:                                 networkAdapter["vlan_id"].(int),
-				WaitForIps:                             networkAdapter["wait_for_ips"].(bool),
-				IpAddresses:                            ipAddresses,
+				ResourcePoolName:                       resourcePoolName,
+				TestReplicaPoolName:                    testReplicaPoolName,
+				TestReplicaSwitchName:                  testReplicaSwitchName,
+				VirtualSubnetId:                        virtualSubnetId,
+				AllowTeaming:                           ToOnOffState(allowTeaming),
+				NotMonitoredInCluster:                  notMonitoredInCluster,
+				StormLimit:                             stormLimit,
+				DynamicIpAddressLimit:                  dynamicIpAddressLimit,
+				DeviceNaming:                           ToOnOffState(deviceNaming),
+				FixSpeed10G:                            ToOnOffState(fixSpeed10G),
+				PacketDirectNumProcs:                   packetDirectNumProcs,
+				PacketDirectModerationCount:            packetDirectModerationCount,
+				PacketDirectModerationInterval:         packetDirectModerationInterval,
+				VrssEnabled:                            vrssEnabled,
 			}
+
+			// Continue with remaining fields
+			vmmqEnabled, ok := networkAdapter["vmmq_enabled"].(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] vmmq_enabled should be a bool")
+			}
+			vmmqQueuePairs, ok := networkAdapter["vmmq_queue_pairs"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] vmmq_queue_pairs should be an int")
+			}
+			vlanAccess, ok := networkAdapter["vlan_access"].(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] vlan_access should be a bool")
+			}
+			vlanId, ok := networkAdapter["vlan_id"].(int)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] vlan_id should be an int")
+			}
+			waitForIps, ok := networkAdapter["wait_for_ips"].(bool)
+			if !ok {
+				return nil, fmt.Errorf("[ERROR][hyperv] wait_for_ips should be a bool")
+			}
+
+			expandedNetworkAdapter.VmmqEnabled = vmmqEnabled
+			expandedNetworkAdapter.VmmqQueuePairs = vmmqQueuePairs
+			expandedNetworkAdapter.VlanAccess = vlanAccess
+			expandedNetworkAdapter.VlanId = vlanId
+			expandedNetworkAdapter.WaitForIps = waitForIps
+			expandedNetworkAdapter.IpAddresses = ipAddresses
 
 			expandedNetworkAdapters = append(expandedNetworkAdapters, expandedNetworkAdapter)
 		}
@@ -334,14 +509,29 @@ type VmNetworkAdapter struct {
 
 func ExpandVmNetworkAdapterWaitForIps(d *schema.ResourceData) ([]VmNetworkAdapterWaitForIp, uint32, uint32, error) {
 	expandVmNetworkAdapterWaitForIps := make([]VmNetworkAdapterWaitForIp, 0)
-	waitForIpsTimeout := uint32((d.Get("wait_for_ips_timeout")).(int))
+
+	timeoutVal := d.Get("wait_for_ips_timeout")
+	timeout, ok := timeoutVal.(int)
+	if !ok {
+		return nil, 0, 0, fmt.Errorf("[ERROR][hyperv] wait_for_ips_timeout should be an int - was '%+v'", timeoutVal)
+	}
+	waitForIpsTimeout := uint32(timeout)
 	if waitForIpsTimeout == 0 {
 		waitForIpsTimeout = 300
 	}
-	waitForIpsPollPeriod := uint32((d.Get("wait_for_ips_poll_period")).(int))
+
+	pollPeriodVal := d.Get("wait_for_ips_poll_period")
+	pollPeriod, ok := pollPeriodVal.(int)
+	if !ok {
+		return nil, 0, 0, fmt.Errorf("[ERROR][hyperv] wait_for_ips_poll_period should be an int - was '%+v'", pollPeriodVal)
+	}
+	waitForIpsPollPeriod := uint32(pollPeriod)
 
 	if v, ok := d.GetOk("network_adaptors"); ok {
-		networkAdapters := v.([]interface{})
+		networkAdapters, ok := v.([]interface{})
+		if !ok {
+			return nil, 0, 0, fmt.Errorf("[ERROR][hyperv] network_adaptors should be a list - was '%+v'", v)
+		}
 
 		for _, networkAdapter := range networkAdapters {
 			networkAdapter, ok := networkAdapter.(map[string]interface{})
@@ -349,9 +539,18 @@ func ExpandVmNetworkAdapterWaitForIps(d *schema.ResourceData) ([]VmNetworkAdapte
 				return nil, waitForIpsTimeout, waitForIpsPollPeriod, fmt.Errorf("[ERROR][hyperv] network_adaptors should be a Hash - was '%+v'", networkAdapter)
 			}
 
+			name, ok := networkAdapter["name"].(string)
+			if !ok {
+				return nil, waitForIpsTimeout, waitForIpsPollPeriod, fmt.Errorf("[ERROR][hyperv] name should be a string")
+			}
+			waitForIps, ok := networkAdapter["wait_for_ips"].(bool)
+			if !ok {
+				return nil, waitForIpsTimeout, waitForIpsPollPeriod, fmt.Errorf("[ERROR][hyperv] wait_for_ips should be a bool")
+			}
+
 			expandedNetworkAdapterWaitForIp := VmNetworkAdapterWaitForIp{
-				Name:       networkAdapter["name"].(string),
-				WaitForIps: networkAdapter["wait_for_ips"].(bool),
+				Name:       name,
+				WaitForIps: waitForIps,
 			}
 
 			expandVmNetworkAdapterWaitForIps = append(expandVmNetworkAdapterWaitForIps, expandedNetworkAdapterWaitForIp)
