@@ -207,7 +207,15 @@ $SetVmSwitchArgs.Name=$vmSwitch.Name
 $SetVmSwitchArgs.Notes=$vmSwitch.Notes
 if ($NetAdapterNames) {
 	$SetVmSwitchArgs.AllowManagementOS=$vmSwitch.AllowManagementOS
-	$SetVmSwitchArgs.NetAdapterName=$NetAdapterNames
+	# NetAdapterName parameter only accepts a single string, not an array
+	# For single adapter: pass the first element as string
+	# For multiple adapters (teaming): changing adapters is complex and not well supported
+	if ($NetAdapterNames.Count -eq 1) {
+		$SetVmSwitchArgs.NetAdapterName=$NetAdapterNames[0]
+	} elseif ($NetAdapterNames.Count -gt 1) {
+		# Multiple adapters - likely using SET teaming, cannot be updated via Set-VMSwitch
+		Write-Warning "Cannot update network adapters for switches with multiple adapters (teaming). Adapter changes will be ignored."
+	}
 	#Updates not supported on:
 	#-EnableEmbeddedTeaming $vmSwitch.EmbeddedTeamingEnabled
 	#-EnableIov $vmSwitch.IovEnabled
