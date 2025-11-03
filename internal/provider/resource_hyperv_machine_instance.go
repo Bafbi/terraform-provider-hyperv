@@ -761,6 +761,7 @@ func resourceHyperVMachineInstance() *schema.Resource {
 						"boot_order": {
 							Type:     schema.TypeList,
 							Optional: true,
+							Computed: true,
 							Elem: &schema.Resource{
 								Schema: map[string]*schema.Schema{
 									"boot_type": {
