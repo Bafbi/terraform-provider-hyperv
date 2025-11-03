@@ -346,7 +346,7 @@ func ExpandVmFirmwares(d *schema.ResourceData) ([]VmFirmware, error) {
 }
 
 func FlattenGen2BootOrders(bootOrders []Gen2BootOrder) []interface{} {
-	if bootOrders == nil || len(bootOrders) < 1 {
+	if len(bootOrders) < 1 {
 		return nil
 	}
 
