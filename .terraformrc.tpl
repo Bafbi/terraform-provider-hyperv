@@ -1,6 +1,6 @@
 provider_installation {
   dev_overrides {
-    "registry.terraform.io/taliesins/hyperv" = "__GOBIN__"
+    "Bafbi/hyperv" = "__GOBIN__"
   }
 
   # For all other providers, install them directly from their origin provider

@@ -2,9 +2,9 @@
 
 Manage Microsoft Hyper-V resources via SSH from any platform.
 
-- [Documentation](https://registry.terraform.io/providers/taliesins/hyperv/latest/docs)
-- [Issues](https://github.com/taliesins/terraform-provider-hyperv/issues)
-- [Releases](https://github.com/taliesins/terraform-provider-hyperv/releases)
+- [Documentation](https://registry.terraform.io/providers/Bafbi/hyperv/latest/docs)
+- [Issues](https://github.com/bafbi/terraform-provider-hyperv/issues)
+- [Releases](https://github.com/bafbi/terraform-provider-hyperv/releases)
 
 ## Features
 
@@ -99,7 +99,7 @@ Environment variables: `HYPERV_HOST`, `HYPERV_USER`, `HYPERV_PASSWORD`, `HYPERV_
 - `hyperv_machine_instance` - Virtual machines
 - `hyperv_iso_image` - ISO images
 
-See [documentation](https://registry.terraform.io/providers/taliesins/hyperv/latest/docs) for details.
+See [documentation](https://registry.terraform.io/providers/bafbi/hyperv/latest/docs) for details.
 
 ## Development
 
