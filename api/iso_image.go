@@ -211,6 +211,7 @@ type HypervIsoImageClient interface {
 	RemoteFileExists(ctx context.Context, path string) (exists bool, err error)
 	RemoteFileDelete(ctx context.Context, path string) (err error)
 	RemoteFileUpload(ctx context.Context, filePath string, remoteFilePath string) (err error)
+	RemoteFileHash(ctx context.Context, path string) (hash string, err error)
 
 	CreateOrUpdateIsoImage(ctx context.Context, sourceIsoFilePath string, sourceIsoFilePathHash string, sourceZipFilePath string, sourceZipFilePathHash string, sourceBootFilePath string, sourceBootFilePathHash string, destinationIsoFilePath string, destinationZipFilePath string, destinationBootFilePath string, media IsoMediaType, fileSystem IsoFileSystemType, volumeName string, resolveDestinationIsoFilePath string, resolveDestinationZipFilePath string, resolveDestinationBootFilePath string) (err error)
 	GetIsoImage(ctx context.Context, resolveDestinationIsoFilePath string) (result IsoImage, err error)

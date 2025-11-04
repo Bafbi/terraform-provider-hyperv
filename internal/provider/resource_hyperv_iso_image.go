@@ -2,8 +2,12 @@ package provider
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	log "log"
+	"os"
 	"path/filepath"
 	"strings"
 	"time"
@@ -22,6 +26,66 @@ const (
 
 func resourceHyperVIsoImage() *schema.Resource {
 	return &schema.Resource{
+		// Compute hashes for local source files during diff so changes to the
+		// local file contents are detected (when the corresponding hash
+		// attribute has not been provided by the user).
+		CustomizeDiff: func(ctx context.Context, d *schema.ResourceDiff, meta interface{}) error {
+			computeIfMissing := func(sourceKey, hashKey string) error {
+				v, ok := d.GetOk(sourceKey)
+				if !ok {
+					return nil
+				}
+				sourcePath := v.(string)
+				if sourcePath == "" {
+					return nil
+				}
+
+				if raw, configured := d.GetOkExists(hashKey); configured {
+					if hashStr, ok := raw.(string); ok && hashStr != "" {
+						return nil
+					}
+				}
+
+				// Only attempt to compute hashes for local files that exist on disk.
+				// Skip urls (http://, https://, file:// etc.)
+				if strings.Contains(sourcePath, "://") || strings.HasPrefix(strings.ToLower(sourcePath), "http") {
+					return nil
+				}
+
+				// Expand environment variables and ~ if present via filepath (best-effort)
+				expanded := os.ExpandEnv(sourcePath)
+				// Do not attempt to resolve ~; leave to user if needed.
+
+				if fi, err := os.Stat(expanded); err != nil || fi.IsDir() {
+					// file not present locally; nothing to compute
+					return nil
+				}
+
+				h, err := computeFileSHA256(expanded)
+				if err != nil {
+					return err
+				}
+
+				if err := d.SetNew(hashKey, h); err != nil {
+					return err
+				}
+
+				return nil
+			}
+
+			// compute for iso, zip and boot
+			if err := computeIfMissing("source_iso_file_path", "source_iso_file_path_hash"); err != nil {
+				return err
+			}
+			if err := computeIfMissing("source_zip_file_path", "source_zip_file_path_hash"); err != nil {
+				return err
+			}
+			if err := computeIfMissing("source_boot_file_path", "source_boot_file_path_hash"); err != nil {
+				return err
+			}
+
+			return nil
+		},
 		Description: "This resource allows you to manage ISOs.",
 		Timeouts: &schema.ResourceTimeout{
 			Read:   schema.DefaultTimeout(ReadIsoImageTimeout),
@@ -52,7 +116,7 @@ func resourceHyperVIsoImage() *schema.Resource {
 			"source_iso_file_path_hash": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "",
+				Computed:    true,
 				Description: "Hash of local iso file.",
 				ConflictsWith: []string{
 					"source_zip_file_path",
@@ -74,7 +138,7 @@ func resourceHyperVIsoImage() *schema.Resource {
 			"source_zip_file_path_hash": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "",
+				Computed:    true,
 				Description: "Hash of local zip file.",
 				ConflictsWith: []string{
 					"source_iso_file_path",
@@ -94,7 +158,7 @@ func resourceHyperVIsoImage() *schema.Resource {
 			"source_boot_file_path_hash": {
 				Type:        schema.TypeString,
 				Optional:    true,
-				Default:     "",
+				Computed:    true,
 				Description: "Hash of local boot file.",
 				ConflictsWith: []string{
 					"source_iso_file_path",
@@ -157,6 +221,22 @@ func resourceHyperVIsoImage() *schema.Resource {
 			},
 		},
 	}
+}
+
+// computeFileSHA256 computes the SHA256 hex digest of a local file.
+func computeFileSHA256(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 func winPath(path string) string {
@@ -261,60 +341,52 @@ func resourceHyperVIsoImageRead(ctx context.Context, d *schema.ResourceData, met
 
 	destinationIsoFilePath := d.Id()
 
-	isoImage, err := c.GetIsoImage(ctx, destinationIsoFilePath)
+	// Check if ISO file still exists on remote host
+	log.Printf("[INFO][iso-image][read] checking if ISO file exists: %s", destinationIsoFilePath)
+	exists, err := c.RemoteFileExists(ctx, destinationIsoFilePath)
 	if err != nil {
-		return diag.FromErr(err)
+		return diag.FromErr(fmt.Errorf("error checking if ISO file exists: %w", err))
 	}
 
-	log.Printf("[INFO][iso-image][read] retrieved isoImage: %+v", isoImage)
-
-	if err := d.Set("source_iso_file_path", isoImage.SourceIsoFilePath); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("source_iso_file_path_hash", isoImage.SourceIsoFilePathHash); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("source_zip_file_path", isoImage.SourceZipFilePath); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("source_zip_file_path_hash", isoImage.SourceZipFilePathHash); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("source_boot_file_path", isoImage.SourceBootFilePath); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("source_boot_file_path_hash", isoImage.SourceBootFilePathHash); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("destination_iso_file_path", destinationIsoFilePath); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("destination_zip_file_path", isoImage.DestinationZipFilePath); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("destination_boot_file_path", isoImage.DestinationBootFilePath); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("iso_media_type", api.IsoMediaType_name[isoImage.Media]); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("iso_file_system_type", api.IsoFileSystemType_name[isoImage.FileSystem]); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("volume_name", isoImage.VolumeName); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("resolve_destination_iso_file_path", isoImage.ResolveDestinationIsoFilePath); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("resolve_destination_zip_file_path", isoImage.ResolveDestinationZipFilePath); err != nil {
-		return diag.FromErr(err)
-	}
-	if err := d.Set("resolve_destination_boot_file_path", isoImage.ResolveDestinationBootFilePath); err != nil {
-		return diag.FromErr(err)
+	if !exists {
+		// ISO was deleted externally - remove from state
+		log.Printf("[WARN][iso-image][read] ISO file not found on remote: %s - removing from state", destinationIsoFilePath)
+		d.SetId("")
+		return nil
 	}
 
-	log.Printf("[INFO][iso-image][read] read remote iso: %#v", d)
+	log.Printf("[INFO][iso-image][read] ISO file exists: %s", destinationIsoFilePath)
+
+	// Verify the ISO file hash matches what we expect (drift detection)
+	// This detects if someone modified the ISO file externally
+	sourceIsoFilePathHash := d.Get("source_iso_file_path_hash").(string)
+	if sourceIsoFilePathHash != "" {
+		log.Printf("[INFO][iso-image][read] computing remote file hash for drift detection")
+		remoteHash, err := c.RemoteFileHash(ctx, destinationIsoFilePath)
+		if err != nil {
+			log.Printf("[WARN][iso-image][read] failed to compute remote hash: %v - skipping drift check", err)
+		} else {
+			// Normalize hashes for comparison (both lowercase, no spaces)
+			remoteHash = strings.ToLower(strings.TrimSpace(remoteHash))
+			expectedHash := strings.ToLower(strings.TrimSpace(sourceIsoFilePathHash))
+
+			if remoteHash != expectedHash {
+				log.Printf("[WARN][iso-image][read] ISO file hash mismatch - drift detected!")
+				log.Printf("[WARN][iso-image][read] expected: %s, got: %s", expectedHash, remoteHash)
+				// Force recreation by marking the source hash as changed
+				// Terraform will see this difference and trigger an update/replace
+				if err := d.Set("source_iso_file_path_hash", remoteHash); err != nil {
+					return diag.FromErr(err)
+				}
+			} else {
+				log.Printf("[INFO][iso-image][read] ISO file hash matches - no drift")
+			}
+		}
+	}
+
+	// All configuration fields are maintained from Terraform state
+	// Hash-based drift detection above handles external file modifications
+	// The existence check above handles the case where the ISO is deleted externally
 
 	return nil
 }
@@ -501,32 +573,26 @@ func resourceHyperVIsoImageDelete(ctx context.Context, d *schema.ResourceData, m
 	resolvedDestinationBootFilePath := (d.Get("resolve_destination_boot_file_path")).(string)
 
 	if resolvedDestinationIsoFilePath != "" {
-		log.Printf("[INFO][iso-image][delete] deleting remote iso file: %#v", d)
+		log.Printf("[INFO][iso-image][delete] deleting remote iso file: %s", resolvedDestinationIsoFilePath)
 		err := c.RemoteFileDelete(ctx, resolvedDestinationIsoFilePath)
 		if err != nil {
 			return diag.FromErr(err)
 		}
-		log.Printf("[INFO][iso-image][delete] deleted remote iso file: %#v", d)
-
-		log.Printf("[INFO][iso-image][delete] deleting remote iso metadata file: %#v", d)
-		err = c.RemoteFileDelete(ctx, fmt.Sprintf("%s.json", resolvedDestinationIsoFilePath))
-		if err != nil {
-			return diag.FromErr(err)
-		}
-		log.Printf("[INFO][iso-image][delete] deleted remote iso metadata file: %#v", d)
+		log.Printf("[INFO][iso-image][delete] deleted remote iso file: %s", resolvedDestinationIsoFilePath)
+		// NOTE: No longer deleting separate metadata file - state-only approach
 	}
 
 	if resolvedDestinationZipFilePath != "" {
-		log.Printf("[INFO][iso-image][delete] deleting remote zip file: %#v", d)
+		log.Printf("[INFO][iso-image][delete] deleting remote zip file: %s", resolvedDestinationZipFilePath)
 		err := c.RemoteFileDelete(ctx, resolvedDestinationZipFilePath)
 		if err != nil {
 			return diag.FromErr(err)
 		}
-		log.Printf("[INFO][iso-image][delete] deleted remote zip file: %#v", d)
+		log.Printf("[INFO][iso-image][delete] deleted remote zip file: %s", resolvedDestinationZipFilePath)
 	}
 
 	if resolvedDestinationBootFilePath != "" {
-		log.Printf("[INFO][iso-image][delete] deleting remote boot file: %#v", d)
+		log.Printf("[INFO][iso-image][delete] deleting remote boot file: %s", resolvedDestinationBootFilePath)
 		err := c.RemoteFileDelete(ctx, resolvedDestinationBootFilePath)
 		if err != nil {
 			return diag.FromErr(err)

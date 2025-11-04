@@ -24,6 +24,35 @@ func (c *ClientConfig) RemoteFileExists(ctx context.Context, remoteFilePath stri
 	return exists, err
 }
 
+func (c *ClientConfig) RemoteFileHash(ctx context.Context, remoteFilePath string) (hash string, err error) {
+	var result string
+	err = c.WinRmClient.RunScriptWithResult(ctx, remoteFileHashTemplate, RemoteFileHashArgs{
+		FilePath: remoteFilePath,
+	}, &result)
+
+	if err != nil {
+		return "", err
+	}
+
+	return result, nil
+}
+
+type RemoteFileHashArgs struct {
+	FilePath string
+}
+
+var remoteFileHashTemplate = template.Must(template.New("RemoteFileHash").Parse(`
+$ErrorActionPreference = 'Stop'
+$FilePath = '{{.FilePath}}'
+
+if (-not (Test-Path $FilePath)) {
+	throw "File not found: $FilePath"
+}
+
+$hash = (Get-FileHash -Path $FilePath -Algorithm SHA256).Hash
+$hash.ToLower()
+`))
+
 type createOrUpdateIsoImageArgs struct {
 	IsoImageJson string
 }
@@ -229,70 +258,7 @@ function Save-IsoImage {
 			Remove-Item $expandedResolveDestinationUnzipDirectoryPath -Force -Recurse -ErrorAction SilentlyContinue
 		}
 	}
-
-	Save-IsoImageMetaData -SourceIsoFilePath $SourceIsoFilePath -SourceIsoFilePathHash $SourceIsoFilePathHash -SourceZipFilePath $SourceZipFilePath -SourceZipFilePathHash $SourceZipFilePathHash -SourceBootFilePath $SourceBootFilePath -SourceBootFilePathHash $SourceBootFilePathHash -DestinationIsoFilePath $DestinationIsoFilePath -DestinationZipFilePath $DestinationZipFilePath -DestinationBootFilePath $DestinationBootFilePath -Media $Media -FileSystem $FileSystem -VolumeName $VolumeName -ResolveDestinationIsoFilePath $ResolveDestinationIsoFilePath -ResolveDestinationZipFilePath $ResolveDestinationZipFilePath -ResolveDestinationBootFilePath $ResolveDestinationBootFilePath -Force:$true
-}
-
-function Save-IsoImageMetaData {
-    [CmdletBinding(SupportsShouldProcess = $true, ConfirmImpact = "Low")]
-    Param
-    (
-        [parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [string]$SourceIsoFilePath = "",
-        [parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [string]$SourceIsoFilePathHash = "",
-        [parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [string]$SourceZipFilePath = "",
-        [parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [string]$SourceZipFilePathHash = "",
-        [parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [string]$SourceBootFilePath = "",
-        [parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [string]$SourceBootFilePathHash = "",
-        [parameter(Mandatory = $true, ValueFromPipeline = $false)]
-        [string]$DestinationIsoFilePath,
-        [parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [string]$DestinationZipFilePath = "",
-        [parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [string]$DestinationBootFilePath = "",
-        [Parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [ValidateSet(0,0x1,0x2,0x3,0x4,0x5,0x6,0x7,0x8,0x9,0xa,0xb,0xc,0xd,0xe,0xf,0x10,0x11,0x12,0x13)]
-        [int]$Media = 0xd,
-        [Parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [ValidateSet(0,0x1,0x2,0x3,0x4,0x6,0x7,0x40000000)]
-        [int]$FileSystem = 0x40000000,
-        [Parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [string]$VolumeName = "UNTITLED",
-        [parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [string]$ResolveDestinationIsoFilePath = "",
-        [parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [string]$ResolveDestinationZipFilePath = "",
-        [parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [string]$ResolveDestinationBootFilePath = "",
-        [Parameter(Mandatory = $false, ValueFromPipeline = $false)]
-        [switch]$Force
-    )
-
-	$expandedResolveDestinationIsoFilePath = $ExecutionContext.InvokeCommand.ExpandString($ResolveDestinationIsoFilePath)
-
-	$IsoImageMetadata = @{}
-	$IsoImageMetadata.SourceIsoFilePath=$SourceIsoFilePath
-	$IsoImageMetadata.SourceIsoFilePathHash=$SourceIsoFilePathHash
-	$IsoImageMetadata.SourceZipFilePath=$SourceZipFilePath
-	$IsoImageMetadata.SourceZipFilePathHash=$SourceZipFilePathHash
-	$IsoImageMetadata.SourceBootFilePath=$SourceBootFilePath
-	$IsoImageMetadata.SourceBootFilePathHash=$SourceBootFilePathHash
-	$IsoImageMetadata.DestinationIsoFilePath=$DestinationIsoFilePath
-	$IsoImageMetadata.DestinationZipFilePath=$DestinationZipFilePath
-	$IsoImageMetadata.DestinationBootFilePath=$DestinationBootFilePath
-	$IsoImageMetadata.Media=$Media
-	$IsoImageMetadata.FileSystem=$FileSystem
-	$IsoImageMetadata.VolumeName=$VolumeName
-	$IsoImageMetadata.ResolveDestinationIsoFilePath=$ResolveDestinationIsoFilePath
-	$IsoImageMetadata.ResolveDestinationZipFilePath=$ResolveDestinationZipFilePath
-	$IsoImageMetadata.ResolveDestinationBootFilePath=$ResolveDestinationBootFilePath
-
-	$IsoImageMetadata | ConvertTo-Json -depth 100 | Out-File "$($expandedResolveDestinationIsoFilePath).json" -Force:$Force
+	# NOTE: Metadata file creation removed - all state stored in Terraform state
 }
 
 $SaveIsoImageArgs = @{}
@@ -357,37 +323,35 @@ type getIsoImageArgs struct {
 var getIsoImageTemplate = template.Must(template.New("GetIsoImage").Parse(`
 $ErrorActionPreference = 'Stop'
 $ResolveDestinationIsoFilePath='{{.ResolveDestinationIsoFilePath}}'
-$isoImageObject = $null
 
 $expandedResolveDestinationIsoFilePath = $ExecutionContext.InvokeCommand.ExpandString($ResolveDestinationIsoFilePath)
 
-$metadataPath="$($expandedResolveDestinationIsoFilePath).json"
-
-if (Test-Path $metadataPath) {
-	$metadata = Get-Content -Raw -Path $metadataPath | ConvertFrom-Json
-
+# State-only approach: Check if ISO file exists
+# All configuration state comes from Terraform state file, not metadata file
+if (Test-Path $expandedResolveDestinationIsoFilePath) {
+	# ISO exists - return minimal object indicating file presence
+	# All configuration fields are maintained in Terraform state
 	$isoImageObject=@{}
-	$isoImageObject.SourceIsoFilePath=$metadata.SourceIsoFilePath
-	$isoImageObject.SourceIsoFilePathHash=$metadata.SourceIsoFilePathHash
-	$isoImageObject.SourceZipFilePath=$metadata.SourceZipFilePath
-	$isoImageObject.SourceZipFilePathHash=$metadata.SourceZipFilePathHash
-	$isoImageObject.SourceBootFilePath=$metadata.SourceBootFilePath
-	$isoImageObject.SourceBootFilePathHash=$metadata.SourceBootFilePathHash
-	$isoImageObject.DestinationIsoFilePath=$metadata.DestinationIsoFilePath
-	$isoImageObject.DestinationZipFilePath=$metadata.DestinationZipFilePath
-	$isoImageObject.DestinationBootFilePath=$metadata.DestinationBootFilePath
-	$isoImageObject.Media=$metadata.Media
-	$isoImageObject.FileSystem=$metadata.FileSystem
-	$isoImageObject.VolumeName=$metadata.VolumeName
-	$isoImageObject.ResolveDestinationIsoFilePath=$metadata.ResolveDestinationIsoFilePath
-	$isoImageObject.ResolveDestinationZipFilePath=$metadata.ResolveDestinationZipFilePath
-	$isoImageObject.ResolveDestinationBootFilePath=$metadata.ResolveDestinationBootFilePath
-} else {}
+	$isoImageObject.SourceIsoFilePath=""
+	$isoImageObject.SourceIsoFilePathHash=""
+	$isoImageObject.SourceZipFilePath=""
+	$isoImageObject.SourceZipFilePathHash=""
+	$isoImageObject.SourceBootFilePath=""
+	$isoImageObject.SourceBootFilePathHash=""
+	$isoImageObject.DestinationIsoFilePath=""
+	$isoImageObject.DestinationZipFilePath=""
+	$isoImageObject.DestinationBootFilePath=""
+	$isoImageObject.Media=0
+	$isoImageObject.FileSystem=0
+	$isoImageObject.VolumeName=""
+	$isoImageObject.ResolveDestinationIsoFilePath=$expandedResolveDestinationIsoFilePath
+	$isoImageObject.ResolveDestinationZipFilePath=""
+	$isoImageObject.ResolveDestinationBootFilePath=""
 
-if ($isoImageObject){
 	$isoImage = ConvertTo-Json -InputObject $isoImageObject
 	$isoImage
 } else {
+	# ISO does not exist - return empty object
 	"{}"
 }
 `))
