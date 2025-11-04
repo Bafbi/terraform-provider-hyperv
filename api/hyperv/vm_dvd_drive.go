@@ -115,11 +115,24 @@ $SetVmDvdDriveArgs.ControllerLocation=$vmDvdDrivesObject.ControllerLocation
 $SetVmDvdDriveArgs.ControllerNumber=$vmDvdDrivesObject.ControllerNumber
 $SetVmDvdDriveArgs.ToControllerLocation=$vmDvdDrive.ControllerLocation
 $SetVmDvdDriveArgs.ToControllerNumber=$vmDvdDrive.ControllerNumber
-if ($vmDvdDrivesObject.ResourcePoolName -ne $vmDvdDrive.ResourcePoolName) {
-	if ($vmDvdDrive.ResourcePoolName) {
+
+$currentResourcePoolName = $vmDvdDrivesObject.ResourcePoolName
+$desiredResourcePoolName = $vmDvdDrive.ResourcePoolName
+
+if ($null -eq $currentResourcePoolName) {
+	$currentResourcePoolName = ""
+}
+
+if ($null -eq $desiredResourcePoolName) {
+	$desiredResourcePoolName = ""
+}
+
+if ($currentResourcePoolName -ne $desiredResourcePoolName) {
+	if ($desiredResourcePoolName) {
 		$SetVmDvdDriveArgs.ResourcePoolName=$vmDvdDrive.ResourcePoolName
-	} else {
-		throw "Unable to remove resource pool from dvd drive $(ConvertTo-Json -InputObject $vmDvdDrivesObject)"
+	} elseif ($currentResourcePoolName) {
+		# Explicitly clear the resource pool association
+		$SetVmDvdDriveArgs.ResourcePoolName=$null
 	}
 }
 $SetVmDvdDriveArgs.Path=$vmDvdDrive.Path
