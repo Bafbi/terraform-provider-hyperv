@@ -40,12 +40,6 @@ func resourceHyperVIsoImage() *schema.Resource {
 					return nil
 				}
 
-				if raw, configured := d.GetOkExists(hashKey); configured {
-					if hashStr, ok := raw.(string); ok && hashStr != "" {
-						return nil
-					}
-				}
-
 				// Only attempt to compute hashes for local files that exist on disk.
 				// Skip urls (http://, https://, file:// etc.)
 				if strings.Contains(sourcePath, "://") || strings.HasPrefix(strings.ToLower(sourcePath), "http") {
@@ -371,13 +365,11 @@ func resourceHyperVIsoImageRead(ctx context.Context, d *schema.ResourceData, met
 			expectedHash := strings.ToLower(strings.TrimSpace(sourceIsoFilePathHash))
 
 			if remoteHash != expectedHash {
-				log.Printf("[WARN][iso-image][read] ISO file hash mismatch - drift detected!")
-				log.Printf("[WARN][iso-image][read] expected: %s, got: %s", expectedHash, remoteHash)
-				// Force recreation by marking the source hash as changed
-				// Terraform will see this difference and trigger an update/replace
-				if err := d.Set("source_iso_file_path_hash", remoteHash); err != nil {
-					return diag.FromErr(err)
-				}
+				log.Printf("[WARN][iso-image][read] ISO file hash mismatch - remote drift detected! expected: %s, got: %s", expectedHash, remoteHash)
+
+				// Treat the resource as missing so Terraform will recreate it on the next plan/apply.
+				d.SetId("")
+				return nil
 			} else {
 				log.Printf("[INFO][iso-image][read] ISO file hash matches - no drift")
 			}

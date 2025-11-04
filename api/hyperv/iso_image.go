@@ -49,8 +49,8 @@ if (-not (Test-Path $FilePath)) {
 	throw "File not found: $FilePath"
 }
 
-$hash = (Get-FileHash -Path $FilePath -Algorithm SHA256).Hash
-$hash.ToLower()
+$hash = (Get-FileHash -Path $FilePath -Algorithm SHA256).Hash.ToLower()
+$hash | ConvertTo-Json -Compress
 `))
 
 type createOrUpdateIsoImageArgs struct {
