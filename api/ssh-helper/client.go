@@ -17,16 +17,21 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"text/template"
 	"time"
+	"runtime"
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
 )
+
+const bufferSize = 32 * 1024
 
 // New creates a new SSH provider
 func New(clientConfig *ClientConfig) (*Provider, error) {
@@ -34,8 +39,6 @@ func New(clientConfig *ClientConfig) (*Provider, error) {
 		Client: clientConfig,
 	}, nil
 }
-
-// ClientConfig holds the SSH connection configuration
 type ClientConfig struct {
 	Host            string
 	Port            int
@@ -48,6 +51,9 @@ type ClientConfig struct {
 	ElevatedUser    string
 	ElevatedCommand string // Command to use for privilege escalation (e.g., "sudo", "doas")
 	Vars            string // Environment variables to set
+	IsWindows       bool   // True if remote host is Windows (uses PowerShell instead of bash)
+	Concurrency     int    // Optional: number of concurrent uploads for directories (default: GOMAXPROCS)
+}
 	IsWindows       bool   // True if remote host is Windows (uses PowerShell instead of bash)
 }
 
@@ -216,12 +222,18 @@ func (c *ClientConfig) UploadFile(ctx context.Context, filePath string, remoteFi
 	}
 	defer client.Close()
 
-	log.Printf("[DEBUG] Uploading file %s to %s", filePath, remoteFilePath)
+	log.Printf("[INFO] Uploading file %s to %s", filePath, remoteFilePath)
 
-	// Read local file
-	fileData, err := os.ReadFile(filePath)
+	// Open local file for streaming (avoid reading whole file into memory)
+	f, err := os.Open(filePath)
 	if err != nil {
-		return "", fmt.Errorf("failed to read local file: %w", err)
+		return "", fmt.Errorf("failed to open local file: %w", err)
+	}
+	defer f.Close()
+
+	fi, err := f.Stat()
+	if err != nil {
+		return "", fmt.Errorf("failed to stat local file: %w", err)
 	}
 
 	// If remote path is a directory or not specified, append the filename
@@ -229,14 +241,26 @@ func (c *ClientConfig) UploadFile(ctx context.Context, filePath string, remoteFi
 		remoteFilePath = filepath.Join(remoteFilePath, filepath.Base(filePath))
 	}
 
-	// Try SFTP first
-	err = c.uploadViaSFTP(client, fileData, remoteFilePath)
+	// Try SFTP first (streamed)
+	err = c.uploadViaSFTP(client, f, remoteFilePath, fi.Size())
 	if err == nil {
-		log.Printf("[DEBUG] Successfully uploaded file via SFTP to %s", remoteFilePath)
+		log.Printf("[INFO] Successfully uploaded file via SFTP to %s", remoteFilePath)
 		return remoteFilePath, nil
 	}
 
 	log.Printf("[DEBUG] SFTP upload failed: %v, trying command-based upload", err)
+
+	// Explicitly reset file handle before fallback (for clarity, though fallback reads independently)
+	_, seekErr := f.Seek(0, 0)
+	if seekErr != nil {
+		log.Printf("[DEBUG] Failed to seek file before fallback: %v", seekErr)
+	}
+
+	// Fallback to command-based upload: read whole file (necessary for base64 approach)
+	fileData, err := os.ReadFile(filePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to read local file for fallback: %w", err)
+	}
 
 	// Fallback to command-based upload
 	err = c.uploadViaCommands(client, fileData, remoteFilePath)
@@ -249,7 +273,7 @@ func (c *ClientConfig) UploadFile(ctx context.Context, filePath string, remoteFi
 }
 
 // uploadViaSFTP uploads a file using SFTP protocol
-func (c *ClientConfig) uploadViaSFTP(client *ssh.Client, fileData []byte, remoteFilePath string) error {
+func (c *ClientConfig) uploadViaSFTP(client *ssh.Client, in io.Reader, remoteFilePath string, size int64) error {
 	// Create SFTP client
 	sftpClient, err := sftp.NewClient(client)
 	if err != nil {
@@ -267,18 +291,26 @@ func (c *ClientConfig) uploadViaSFTP(client *ssh.Client, fileData []byte, remote
 		}
 	}
 
-	// Create remote file
-	remoteFile, err := sftpClient.Create(remoteFilePath)
+	// For large files, stream using a buffered copy to avoid loading into memory
+	// Open remote file for writing (truncate/create)
+	remoteFile, err := sftpClient.OpenFile(remoteFilePath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
 	if err != nil {
-		return fmt.Errorf("failed to create remote file: %w", err)
+		// Try Create as fallback
+		remoteFile, err = sftpClient.Create(remoteFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to create remote file: %w", err)
+		}
 	}
 	defer remoteFile.Close()
 
-	// Write file content
-	_, err = remoteFile.Write(fileData)
+	// Use a moderate buffer for copying
+	buf := make([]byte, bufferSize)
+	_, err = io.CopyBuffer(remoteFile, in, buf)
 	if err != nil {
 		return fmt.Errorf("failed to write file content: %w", err)
 	}
+
+	// Optionally, set remote file size/attributes if needed (not required here)
 
 	return nil
 }
@@ -371,8 +403,8 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 		return "", nil, fmt.Errorf("failed to create remote directory: %w", err)
 	}
 
-	// Walk through local directory and upload files
-	remoteAbsoluteFilePaths = []string{}
+	// Walk through local directory and collect files
+	files := []string{}
 	err = filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -392,50 +424,144 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 			}
 		}
 
-		// Upload file
-		var remotePath string
-		if c.IsWindows {
-			// Convert to Windows path
-			remotePath = filepath.Join(remoteRootPath, relPath)
-			remotePath = filepath.ToSlash(remotePath)              // Convert to forward slashes for consistency
-			remotePath = strings.ReplaceAll(remotePath, "/", "\\") // Then to backslashes for Windows
-		} else {
-			remotePath = filepath.Join(remoteRootPath, relPath)
-		}
-
-		var remoteDir string
-		if c.IsWindows {
-			remoteDir = filepath.Dir(remotePath)
-		} else {
-			remoteDir = filepath.Dir(remotePath)
-		}
-
-		// Create remote directory structure
-		session, err := client.NewSession()
-		if err != nil {
-			return err
-		}
-
-		var mkdirCmd string
-		if c.IsWindows {
-			mkdirCmd = fmt.Sprintf("powershell -Command \"New-Item -ItemType Directory -Force -Path '%s'\"", remoteDir)
-		} else {
-			mkdirCmd = fmt.Sprintf("mkdir -p %s", remoteDir)
-		}
-
-		_ = session.Run(mkdirCmd) // Ignore error, directory might exist
-		session.Close()           // Upload the file
-		_, err = c.UploadFile(ctx, path, remotePath)
-		if err != nil {
-			return err
-		}
-
-		remoteAbsoluteFilePaths = append(remoteAbsoluteFilePaths, remotePath)
+		files = append(files, path)
 		return nil
 	})
 
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to upload directory: %w", err)
+		return "", nil, fmt.Errorf("failed to list files: %w", err)
+	}
+
+	remoteAbsoluteFilePaths = []string{}
+
+	// Try to create a single SFTP client to perform concurrent uploads
+	sftpClient, sftpErr := sftp.NewClient(client)
+	if sftpErr != nil {
+		// If SFTP creation fails, fallback to existing per-file upload (which itself will attempt SFTP then fallback)
+		for _, path := range files {
+			relPath, _ := filepath.Rel(rootPath, path)
+			var remotePath string
+			if c.IsWindows {
+				remotePath = filepath.Join(remoteRootPath, relPath)
+				remotePath = filepath.ToSlash(remotePath)
+				remotePath = strings.ReplaceAll(remotePath, "/", "\\")
+			} else {
+				remotePath = filepath.Join(remoteRootPath, relPath)
+			}
+
+			_, err := c.UploadFile(ctx, path, remotePath)
+			if err != nil {
+				return "", nil, fmt.Errorf("failed to upload file %s: %w", path, err)
+			}
+			remoteAbsoluteFilePaths = append(remoteAbsoluteFilePaths, remotePath)
+		}
+
+		log.Printf("[DEBUG] Successfully uploaded directory to %s with %d files (fallback path)", remoteRootPath, len(remoteAbsoluteFilePaths))
+		return remoteRootPath, remoteAbsoluteFilePaths, nil
+	}
+	defer sftpClient.Close()
+
+	// Concurrent uploads using worker pool
+	type job struct {
+		src string
+		dst string
+	}
+
+	jobs := make(chan job, len(files))
+	results := make(chan error, len(files))
+	var mu sync.Mutex
+
+	// worker function
+	worker := func() {
+		for j := range jobs {
+			// open local file
+			lf, err := os.Open(j.src)
+			if err != nil {
+				results <- fmt.Errorf("failed to open %s: %w", j.src, err)
+				continue
+			// ensure remote dir exists
+			remoteDir := filepath.Dir(j.dst)
+			if remoteDir != "" && remoteDir != "." {
+				if err := sftpClient.MkdirAll(remoteDir); err != nil {
+					// Only log errors that are not "already exists"
+					if !os.IsExist(err) {
+						log.Printf("[WARN] Failed to create remote directory %s: %v", remoteDir, err)
+					}
+				}
+			}
+				_ = sftpClient.MkdirAll(remoteDir) // ignore error; might exist
+			}
+
+			// open remote file
+			rf, err := sftpClient.OpenFile(j.dst, os.O_WRONLY|os.O_CREATE|os.O_TRUNC)
+			if err != nil {
+				// fallback to Create
+				rf, err = sftpClient.Create(j.dst)
+			}
+			if err != nil {
+				_ = lf.Close()
+				results <- fmt.Errorf("failed to create remote file %s: %w", j.dst, err)
+				continue
+			}
+
+			// copy
+			buf := make([]byte, bufferSize)
+			_, err = io.CopyBuffer(rf, lf, buf)
+
+			rf.Close()
+			lf.Close()
+
+			if err != nil {
+				results <- fmt.Errorf("failed to upload %s to %s: %w", j.src, j.dst, err)
+				continue
+			}
+
+			mu.Lock()
+			remoteAbsoluteFilePaths = append(remoteAbsoluteFilePaths, j.dst)
+			mu.Unlock()
+
+			results <- nil
+		}
+	// spawn workers (choose concurrency based on GOMAXPROCS or config)
+	concurrency := c.Concurrency
+	if concurrency <= 0 {
+		concurrency = runtime.GOMAXPROCS(0)
+	}
+	var wg sync.WaitGroup
+	for i := 0; i < concurrency; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			worker()
+		}()
+	}
+		}()
+	}
+
+	// enqueue jobs
+	for _, path := range files {
+		relPath, _ := filepath.Rel(rootPath, path)
+		var remotePath string
+		if c.IsWindows {
+			remotePath = filepath.Join(remoteRootPath, relPath)
+			remotePath = filepath.ToSlash(remotePath)
+			remotePath = strings.ReplaceAll(remotePath, "/", "\\")
+		} else {
+			remotePath = filepath.Join(remoteRootPath, relPath)
+		}
+		jobs <- job{src: path, dst: remotePath}
+	}
+	close(jobs)
+
+	// wait for workers
+	wg.Wait()
+	close(results)
+
+	// check results
+	for err := range results {
+		if err != nil {
+			return "", nil, fmt.Errorf("failed to upload directory: %w", err)
+		}
 	}
 
 	log.Printf("[DEBUG] Successfully uploaded directory to %s with %d files", remoteRootPath, len(remoteAbsoluteFilePaths))
