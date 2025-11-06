@@ -21,11 +21,11 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"text/template"
 	"time"
-	"runtime"
 
 	"github.com/pkg/sftp"
 	"golang.org/x/crypto/ssh"
@@ -39,6 +39,7 @@ func New(clientConfig *ClientConfig) (*Provider, error) {
 		Client: clientConfig,
 	}, nil
 }
+
 type ClientConfig struct {
 	Host            string
 	Port            int
@@ -53,8 +54,6 @@ type ClientConfig struct {
 	Vars            string // Environment variables to set
 	IsWindows       bool   // True if remote host is Windows (uses PowerShell instead of bash)
 	Concurrency     int    // Optional: number of concurrent uploads for directories (default: GOMAXPROCS)
-}
-	IsWindows       bool   // True if remote host is Windows (uses PowerShell instead of bash)
 }
 
 // getSSHClient creates and returns an SSH client connection
@@ -479,6 +478,8 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 			if err != nil {
 				results <- fmt.Errorf("failed to open %s: %w", j.src, err)
 				continue
+			}
+
 			// ensure remote dir exists
 			remoteDir := filepath.Dir(j.dst)
 			if remoteDir != "" && remoteDir != "." {
@@ -488,7 +489,6 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 						log.Printf("[WARN] Failed to create remote directory %s: %v", remoteDir, err)
 					}
 				}
-			}
 				_ = sftpClient.MkdirAll(remoteDir) // ignore error; might exist
 			}
 
@@ -522,6 +522,8 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 
 			results <- nil
 		}
+	}
+
 	// spawn workers (choose concurrency based on GOMAXPROCS or config)
 	concurrency := c.Concurrency
 	if concurrency <= 0 {
@@ -533,8 +535,6 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 		go func() {
 			defer wg.Done()
 			worker()
-		}()
-	}
 		}()
 	}
 
@@ -553,7 +553,7 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 	}
 	close(jobs)
 
-	// wait for workers
+	// wait for all workers to finish
 	wg.Wait()
 	close(results)
 
