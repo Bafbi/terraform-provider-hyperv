@@ -213,7 +213,7 @@ func ExpandHardDiskDrives(d *schema.ResourceData) ([]VmHardDiskDrive, error) {
 				ControllerType:                ToControllerType(controllerType),
 				ControllerNumber:              int32(controllerNumber),
 				ControllerLocation:            int32(controllerLocation),
-				Path:                          path,
+				Path:                          ToWindowsPath(path),
 				DiskNumber:                    uint32(diskNumber),
 				ResourcePoolName:              resourcePoolName,
 				SupportPersistentReservations: supportPersistentReservations,
@@ -242,7 +242,7 @@ func FlattenHardDiskDrives(hardDiskDrives *[]VmHardDiskDrive) []interface{} {
 		flattenedHardDiskDrive["controller_type"] = hardDiskDrive.ControllerType.String()
 		flattenedHardDiskDrive["controller_number"] = hardDiskDrive.ControllerNumber
 		flattenedHardDiskDrive["controller_location"] = hardDiskDrive.ControllerLocation
-		flattenedHardDiskDrive["path"] = strings.ReplaceAll(hardDiskDrive.Path, "\\", "/")
+		flattenedHardDiskDrive["path"] = NormalizePath(hardDiskDrive.Path)
 		flattenedHardDiskDrive["disk_number"] = hardDiskDrive.DiskNumber
 		flattenedHardDiskDrive["resource_pool_name"] = hardDiskDrive.ResourcePoolName
 		flattenedHardDiskDrive["support_persistent_reservations"] = hardDiskDrive.SupportPersistentReservations

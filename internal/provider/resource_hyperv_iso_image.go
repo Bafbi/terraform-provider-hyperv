@@ -99,6 +99,7 @@ func resourceHyperVIsoImage() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "",
+				StateFunc:   PathStateFunc,
 				Description: "Local iso file path.",
 				ConflictsWith: []string{
 					"source_zip_file_path",
@@ -123,6 +124,7 @@ func resourceHyperVIsoImage() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "",
+				StateFunc:   PathStateFunc,
 				Description: "Local zip file path.",
 				ConflictsWith: []string{
 					"source_iso_file_path",
@@ -143,6 +145,7 @@ func resourceHyperVIsoImage() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "",
+				StateFunc:   PathStateFunc,
 				Description: "Local boot file path.",
 				ConflictsWith: []string{
 					"source_iso_file_path",
@@ -162,6 +165,7 @@ func resourceHyperVIsoImage() *schema.Resource {
 			"destination_iso_file_path": {
 				Type:        schema.TypeString,
 				Required:    true,
+				StateFunc:   PathStateFunc,
 				Description: "Remote iso file path.",
 				ForceNew:    true,
 			},
@@ -169,12 +173,14 @@ func resourceHyperVIsoImage() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "",
+				StateFunc:   PathStateFunc,
 				Description: "Remote zip file path. This defaults to `$env:temp\\{filename(source_zip_file_path)}`",
 			},
 			"destination_boot_file_path": {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     "",
+				StateFunc:   PathStateFunc,
 				Description: "Remote boot file path. This defaults to `$env:temp\\{filename(source_boot_file_path)}`",
 			},
 			"iso_media_type": {

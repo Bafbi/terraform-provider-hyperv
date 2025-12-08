@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/hashicorp/terraform-plugin-sdk/v2/helper/schema"
 )
@@ -42,7 +41,7 @@ func ExpandDvdDrives(d *schema.ResourceData) ([]VmDvdDrive, error) {
 			expandedDvdDrive := VmDvdDrive{
 				ControllerNumber:   controllerNumber,
 				ControllerLocation: controllerLocation,
-				Path:               path,
+				Path:               ToWindowsPath(path),
 				ResourcePoolName:   resourcePoolName,
 			}
 
@@ -64,7 +63,7 @@ func FlattenDvdDrives(dvdDrives *[]VmDvdDrive) []interface{} {
 		flattenedDvdDrive := make(map[string]interface{})
 		flattenedDvdDrive["controller_number"] = dvdDrive.ControllerNumber
 		flattenedDvdDrive["controller_location"] = dvdDrive.ControllerLocation
-		flattenedDvdDrive["path"] = strings.ReplaceAll(dvdDrive.Path, "\\", "/")
+		flattenedDvdDrive["path"] = NormalizePath(dvdDrive.Path)
 		flattenedDvdDrive["resource_pool_name"] = dvdDrive.ResourcePoolName
 		flattenedDvdDrives = append(flattenedDvdDrives, flattenedDvdDrive)
 	}

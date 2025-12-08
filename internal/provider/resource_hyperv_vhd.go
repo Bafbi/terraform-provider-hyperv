@@ -42,8 +42,8 @@ func resourceHyperVVhd() *schema.Resource {
 				Required: true,
 				DiffSuppressFunc: func(k, oldValue, newValue string, d *schema.ResourceData) bool {
 					// Normalize path separators for comparison (Windows accepts both / and \)
-					oldNormalized := strings.ReplaceAll(oldValue, "\\", "/")
-					newNormalized := strings.ReplaceAll(newValue, "\\", "/")
+					oldNormalized := api.NormalizePath(oldValue)
+					newNormalized := api.NormalizePath(newValue)
 
 					extension := path.Ext(newNormalized)
 					computedPath := strings.TrimSuffix(newNormalized, extension)
@@ -59,6 +59,7 @@ func resourceHyperVVhd() *schema.Resource {
 
 					return false
 				},
+				StateFunc:   PathStateFunc,
 				Description: "Path to the new virtual hard disk file(s) that is being created or being copied to. If a filename or relative path is specified, the new virtual hard disk path is calculated relative to the current working directory. Depending on the source selected, the path will be used to determine where to copy source vhd/vhdx/vhds file to.",
 			},
 			"source": {
@@ -69,6 +70,7 @@ func resourceHyperVVhd() *schema.Resource {
 					"parent_path",
 					"source_disk",
 				},
+				StateFunc:   PathStateFunc,
 				Description: "This field is mutually exclusive with the fields `source_vm`, `parent_path`, `source_disk`. This value can be a url or a path (including wildcards). Box, Zip and 7z files will automatically be expanded. The destination folder will be the directory portion of the path. If expanded files have a folder called `Virtual Machines`, then the `Virtual Machines` folder will be used instead of the entire archive contents. ",
 			},
 			"source_vm": {
@@ -111,10 +113,9 @@ func resourceHyperVVhd() *schema.Resource {
 					"source_disk",
 					"size",
 				},
-				DiffSuppressFunc: func(k, oldValue, newValue string, d *schema.ResourceData) bool {
-					return strings.EqualFold(oldValue, newValue)
-				},
-				Description: "This field is mutually exclusive with the fields `source`, `source_vm`, `source_disk`, `size`. Specifies the path to the parent of the differencing disk to be created (this parameter may be specified only for the creation of a differencing disk).",
+				DiffSuppressFunc: PathDiffSuppress,
+				StateFunc:        PathStateFunc,
+				Description:      "This field is mutually exclusive with the fields `source`, `source_vm`, `source_disk`, `size`. Specifies the path to the parent of the differencing disk to be created (this parameter may be specified only for the creation of a differencing disk).",
 			},
 			"size": {
 				Type:     schema.TypeInt,
