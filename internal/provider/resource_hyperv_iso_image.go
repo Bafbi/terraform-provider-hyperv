@@ -213,6 +213,12 @@ func resourceHyperVIsoImage() *schema.Resource {
 				Computed:    true,
 				Description: "The remote boot file path that was used.",
 			},
+			"keep_on_destroy": {
+				Type:        schema.TypeBool,
+				Optional:    true,
+				Default:     false,
+				Description: "If set to true, the ISO file (and associated uploaded files) will not be deleted from the Hyper-V host when the resource is destroyed.",
+			},
 		},
 	}
 }
@@ -264,6 +270,28 @@ func ensureFileStateCreate(ctx context.Context, d *schema.ResourceData, c api.Cl
 			return "", fmt.Errorf("checking for existing %s: %+v", resolveDestinationFilePath, err)
 		}
 		if resolveDestinationFilePathExists {
+			// Check if we can adopt the existing file
+			sourceFilePathHashKey := fmt.Sprintf("source_%s_file_path_hash", name)
+			sourceFilePathHash := d.Get(sourceFilePathHashKey).(string)
+
+			if sourceFilePathHash != "" {
+				log.Printf("[INFO][iso-image][create] file exists, checking hash for adoption: %s", resolveDestinationFilePath)
+				remoteHash, err := c.RemoteFileHash(ctx, resolveDestinationFilePath)
+				if err == nil {
+					remoteHash = strings.ToLower(strings.TrimSpace(remoteHash))
+					expectedHash := strings.ToLower(strings.TrimSpace(sourceFilePathHash))
+
+					if remoteHash == expectedHash {
+						log.Printf("[INFO][iso-image][create] remote file hash matches expected hash - adopting existing file: %s", resolveDestinationFilePath)
+						return resolveDestinationFilePath, nil
+					} else {
+						log.Printf("[WARN][iso-image][create] remote file hash mismatch (expected %s, got %s) - cannot adopt existing file", expectedHash, remoteHash)
+					}
+				} else {
+					log.Printf("[WARN][iso-image][create] failed to compute remote hash: %v - cannot adopt existing file", err)
+				}
+			}
+
 			return "", fmt.Errorf("A resource with the ID %q already exists - to be managed via Terraform this resource needs to be imported into the State. Please see the resource documentation for %q for more information.\n terraform import %s.<resource name> %s", resolveDestinationFilePath, "remote_iso", "remote_iso", resolveDestinationFilePath)
 		}
 
@@ -559,6 +587,11 @@ func resourceHyperVIsoImageUpdate(ctx context.Context, d *schema.ResourceData, m
 
 func resourceHyperVIsoImageDelete(ctx context.Context, d *schema.ResourceData, meta interface{}) diag.Diagnostics {
 	c := meta.(api.Client)
+
+	if d.Get("keep_on_destroy").(bool) {
+		log.Printf("[INFO][iso-image][delete] keep_on_destroy is true - preserving remote files")
+		return nil
+	}
 
 	resolvedDestinationIsoFilePath := (d.Get("resolve_destination_iso_file_path")).(string)
 	resolvedDestinationZipFilePath := (d.Get("resolve_destination_zip_file_path")).(string)
