@@ -123,6 +123,7 @@ type updateVmHardDiskDriveArgs struct {
 	VmName              string
 	ControllerNumber    int32
 	ControllerLocation  int32
+	ControllerType      api.ControllerType
 	VmHardDiskDriveJson string
 }
 
@@ -131,10 +132,10 @@ $ErrorActionPreference = 'Stop'
 Import-Module Hyper-V
 $vmHardDiskDrive = '{{.VmHardDiskDriveJson}}' | ConvertFrom-Json
 
-$vmHardDiskDrivesObject = @(Get-VM -Name '{{.VmName}}*' | ?{$_.Name -eq '{{.VmName}}' } | Get-VMHardDiskDrive -ControllerLocation {{.ControllerLocation}} -ControllerNumber {{.ControllerNumber}} )
+$vmHardDiskDrivesObject = @(Get-VM -Name '{{.VmName}}*' | ?{$_.Name -eq '{{.VmName}}' } | Get-VMHardDiskDrive -ControllerLocation {{.ControllerLocation}} -ControllerNumber {{.ControllerNumber}} -ControllerType {{.ControllerType}})
 
 if (!$vmHardDiskDrivesObject){
-	throw "VM hard disk drive does not exist - {{.ControllerLocation}} {{.ControllerNumber}}"
+	throw "VM hard disk drive does not exist - {{.ControllerLocation}} {{.ControllerNumber}} {{.ControllerType}}"
 }
 
 $SetVmHardDiskDriveArgs = @{}
@@ -206,6 +207,7 @@ func (c *ClientConfig) UpdateVmHardDiskDrive(
 		VmName:              vmName,
 		ControllerNumber:    controllerNumber,
 		ControllerLocation:  controllerLocation,
+		ControllerType:      controllerType,
 		VmHardDiskDriveJson: string(vmHardDiskDriveJson),
 	})
 
@@ -216,19 +218,21 @@ type deleteVmHardDiskDriveArgs struct {
 	VmName             string
 	ControllerNumber   int32
 	ControllerLocation int32
+	ControllerType     api.ControllerType
 }
 
 var deleteVmHardDiskDriveTemplate = template.Must(template.New("DeleteVmHardDiskDrive").Parse(`
 $ErrorActionPreference = 'Stop'
 
-@(Get-VMHardDiskDrive -VmName '{{.VmName}}' -ControllerNumber {{.ControllerNumber}} -ControllerLocation {{.ControllerLocation}}) | Remove-VMHardDiskDrive
+@(Get-VMHardDiskDrive -VmName '{{.VmName}}' -ControllerNumber {{.ControllerNumber}} -ControllerLocation {{.ControllerLocation}} -ControllerType {{.ControllerType}}) | Remove-VMHardDiskDrive
 `))
 
-func (c *ClientConfig) DeleteVmHardDiskDrive(ctx context.Context, vmname string, controllerNumber int32, controllerLocation int32) (err error) {
+func (c *ClientConfig) DeleteVmHardDiskDrive(ctx context.Context, vmname string, controllerNumber int32, controllerLocation int32, controllerType api.ControllerType) (err error) {
 	err = c.WinRmClient.RunFireAndForgetScript(ctx, deleteVmHardDiskDriveTemplate, deleteVmHardDiskDriveArgs{
 		VmName:             vmname,
 		ControllerNumber:   controllerNumber,
 		ControllerLocation: controllerLocation,
+		ControllerType:     controllerType,
 	})
 
 	return err
@@ -243,64 +247,88 @@ func (c *ClientConfig) CreateOrUpdateVmHardDiskDrives(ctx context.Context, vmNam
 	currentHardDiskDrivesLength := len(currentHardDiskDrives)
 	desiredHardDiskDrivesLength := len(hardDiskDrives)
 
+	// 1. Delete extra drives (index out of bounds of desired)
 	for i := currentHardDiskDrivesLength - 1; i > desiredHardDiskDrivesLength-1; i-- {
 		currentHardDiskDrive := currentHardDiskDrives[i]
-		err = c.DeleteVmHardDiskDrive(ctx, vmName, currentHardDiskDrive.ControllerNumber, currentHardDiskDrive.ControllerLocation)
+		err = c.DeleteVmHardDiskDrive(ctx, vmName, currentHardDiskDrive.ControllerNumber, currentHardDiskDrive.ControllerLocation, currentHardDiskDrive.ControllerType)
 		if err != nil {
 			return err
 		}
 	}
 
-	if currentHardDiskDrivesLength > desiredHardDiskDrivesLength {
-		currentHardDiskDrivesLength = desiredHardDiskDrivesLength
+	// 2. Identify drives that need to be moved/recreated and delete them
+	// We only iterate up to the minimum length (intersection of current and desired)
+	limit := currentHardDiskDrivesLength
+	if desiredHardDiskDrivesLength < limit {
+		limit = desiredHardDiskDrivesLength
 	}
 
-	for i := 0; i <= currentHardDiskDrivesLength-1; i++ {
+	indicesToCreate := make(map[int]bool)
+
+	for i := 0; i < limit; i++ {
 		currentHardDiskDrive := currentHardDiskDrives[i]
 		hardDiskDrive := hardDiskDrives[i]
 
-		err = c.UpdateVmHardDiskDrive(
-			ctx,
-			vmName,
-			currentHardDiskDrive.ControllerNumber,
-			currentHardDiskDrive.ControllerLocation,
-			hardDiskDrive.ControllerType,
-			hardDiskDrive.ControllerNumber,
-			hardDiskDrive.ControllerLocation,
-			hardDiskDrive.Path,
-			hardDiskDrive.DiskNumber,
-			hardDiskDrive.ResourcePoolName,
-			hardDiskDrive.SupportPersistentReservations,
-			hardDiskDrive.MaximumIops,
-			hardDiskDrive.MinimumIops,
-			hardDiskDrive.QosPolicyId,
-			hardDiskDrive.OverrideCacheAttributes,
-		)
-		if err != nil {
-			return err
+		// Check if identity/location changed
+		if currentHardDiskDrive.ControllerType != hardDiskDrive.ControllerType ||
+			currentHardDiskDrive.ControllerNumber != hardDiskDrive.ControllerNumber ||
+			currentHardDiskDrive.ControllerLocation != hardDiskDrive.ControllerLocation {
+
+			// Mismatch in location/type -> Delete and Recreate
+			err = c.DeleteVmHardDiskDrive(ctx, vmName, currentHardDiskDrive.ControllerNumber, currentHardDiskDrive.ControllerLocation, currentHardDiskDrive.ControllerType)
+			if err != nil {
+				return err
+			}
+			indicesToCreate[i] = true
+		} else {
+			// Location matches -> Update in place
+			err = c.UpdateVmHardDiskDrive(
+				ctx,
+				vmName,
+				currentHardDiskDrive.ControllerNumber,
+				currentHardDiskDrive.ControllerLocation,
+				currentHardDiskDrive.ControllerType,
+				hardDiskDrive.ControllerNumber,
+				hardDiskDrive.ControllerLocation,
+				hardDiskDrive.Path,
+				hardDiskDrive.DiskNumber,
+				hardDiskDrive.ResourcePoolName,
+				hardDiskDrive.SupportPersistentReservations,
+				hardDiskDrive.MaximumIops,
+				hardDiskDrive.MinimumIops,
+				hardDiskDrive.QosPolicyId,
+				hardDiskDrive.OverrideCacheAttributes,
+			)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
-	for i := currentHardDiskDrivesLength - 1 + 1; i <= desiredHardDiskDrivesLength-1; i++ {
-		hardDiskDrive := hardDiskDrives[i]
-		err = c.CreateVmHardDiskDrive(
-			ctx,
-			vmName,
-			hardDiskDrive.ControllerType,
-			hardDiskDrive.ControllerNumber,
-			hardDiskDrive.ControllerLocation,
-			hardDiskDrive.Path,
-			hardDiskDrive.DiskNumber,
-			hardDiskDrive.ResourcePoolName,
-			hardDiskDrive.SupportPersistentReservations,
-			hardDiskDrive.MaximumIops,
-			hardDiskDrive.MinimumIops,
-			hardDiskDrive.QosPolicyId,
-			hardDiskDrive.OverrideCacheAttributes,
-		)
+	// 3. Create new drives (either completely new, or those we deleted to move)
+	for i := 0; i < desiredHardDiskDrivesLength; i++ {
+		// Create if it's a new index (>= limit) OR if we marked it for recreation
+		if i >= limit || indicesToCreate[i] {
+			hardDiskDrive := hardDiskDrives[i]
+			err = c.CreateVmHardDiskDrive(
+				ctx,
+				vmName,
+				hardDiskDrive.ControllerType,
+				hardDiskDrive.ControllerNumber,
+				hardDiskDrive.ControllerLocation,
+				hardDiskDrive.Path,
+				hardDiskDrive.DiskNumber,
+				hardDiskDrive.ResourcePoolName,
+				hardDiskDrive.SupportPersistentReservations,
+				hardDiskDrive.MaximumIops,
+				hardDiskDrive.MinimumIops,
+				hardDiskDrive.QosPolicyId,
+				hardDiskDrive.OverrideCacheAttributes,
+			)
 
-		if err != nil {
-			return err
+			if err != nil {
+				return err
+			}
 		}
 	}
 

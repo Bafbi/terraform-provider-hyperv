@@ -387,12 +387,17 @@ type deleteVhdArgs struct {
 var deleteVhdTemplate = template.Must(template.New("DeleteVhd").Parse(`
 $ErrorActionPreference = 'Stop'
 
-$targetDirectory = (split-path '{{.Path}}' -Parent)
-$targetName = (split-path '{{.Path}}' -Leaf)
-$targetName = $targetName.Substring(0,$targetName.LastIndexOf('.')).split('\')[-1]
+$path = '{{.Path}}'
+$targetDirectory = Split-Path $path -Parent
+$targetLeaf = Split-Path $path -Leaf
+$targetBaseName = [System.IO.Path]::GetFileNameWithoutExtension($targetLeaf)
 
-Get-ChildItem -Path $targetDirectory |?{$_.BaseName.StartsWith($targetName)} | %{
-	Remove-Item $_.FullName -Force
+if (Test-Path -LiteralPath $targetDirectory) {
+    Get-ChildItem -LiteralPath $targetDirectory | Where-Object { $_.BaseName -ne $null -and $_.BaseName.StartsWith($targetBaseName) } | ForEach-Object {
+        if ($_.FullName) {
+            Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
+        }
+    }
 }
 `))
 

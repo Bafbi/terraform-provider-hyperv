@@ -307,6 +307,6 @@ type HypervVmHardDiskDriveClient interface {
 		qosPolicyId string,
 		overrideCacheAttributes CacheAttributes,
 	) (err error)
-	DeleteVmHardDiskDrive(ctx context.Context, vmname string, controllerNumber int32, controllerLocation int32) (err error)
+	DeleteVmHardDiskDrive(ctx context.Context, vmname string, controllerNumber int32, controllerLocation int32, controllerType ControllerType) (err error)
 	CreateOrUpdateVmHardDiskDrives(ctx context.Context, vmName string, hardDiskDrives []VmHardDiskDrive) (err error)
 }
