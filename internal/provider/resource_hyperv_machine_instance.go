@@ -78,6 +78,9 @@ func resourceHyperVMachineInstance() *schema.Resource {
 
 					return false
 				},
+				StateFunc: func(val interface{}) string {
+					return strings.ReplaceAll(val.(string), "\\", "/")
+				},
 				Description: "The path of the virtual machine.",
 			},
 
@@ -653,6 +656,9 @@ func resourceHyperVMachineInstance() *schema.Resource {
 								newNormalized := strings.ReplaceAll(newValue, "\\", "/")
 								return strings.EqualFold(oldNormalized, newNormalized)
 							},
+							StateFunc: func(val interface{}) string {
+								return strings.ReplaceAll(val.(string), "\\", "/")
+							},
 							Description: "Specifies the full path to the virtual hard disk file or physical hard disk volume for the added DVD drive.",
 						},
 						"resource_pool_name": {
@@ -700,7 +706,10 @@ func resourceHyperVMachineInstance() *schema.Resource {
 							Optional:         true,
 							Default:          "",
 							DiffSuppressFunc: api.DiffSuppressVmHardDiskPath,
-							Description:      "Specifies the full path of the hard disk drive file to be added.",
+							StateFunc: func(val interface{}) string {
+								return strings.ReplaceAll(val.(string), "\\", "/")
+							},
+							Description: "Specifies the full path of the hard disk drive file to be added.",
 						},
 						"disk_number": {
 							Type:        schema.TypeInt,
@@ -868,6 +877,9 @@ func resourceHyperVMachineInstance() *schema.Resource {
 											}
 
 											return false
+										},
+										StateFunc: func(val interface{}) string {
+											return strings.ReplaceAll(val.(string), "\\", "/")
 										},
 										Description: "Specifies the file path of hard disk drive or dvd drive.",
 									},

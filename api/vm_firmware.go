@@ -360,7 +360,7 @@ func FlattenGen2BootOrders(bootOrders []Gen2BootOrder) []interface{} {
 		flattenedGen2BootOrder["switch_name"] = bootOrder.SwitchName
 		flattenedGen2BootOrder["mac_address"] = bootOrder.MacAddress
 
-		flattenedGen2BootOrder["path"] = bootOrder.Path
+		flattenedGen2BootOrder["path"] = strings.ReplaceAll(bootOrder.Path, "\\", "/")
 		flattenedGen2BootOrder["controller_number"] = bootOrder.ControllerNumber
 		flattenedGen2BootOrder["controller_location"] = bootOrder.ControllerLocation
 		flattenedGen2BootOrders = append(flattenedGen2BootOrders, flattenedGen2BootOrder)

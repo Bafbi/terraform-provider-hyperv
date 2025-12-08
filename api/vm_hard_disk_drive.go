@@ -242,7 +242,7 @@ func FlattenHardDiskDrives(hardDiskDrives *[]VmHardDiskDrive) []interface{} {
 		flattenedHardDiskDrive["controller_type"] = hardDiskDrive.ControllerType.String()
 		flattenedHardDiskDrive["controller_number"] = hardDiskDrive.ControllerNumber
 		flattenedHardDiskDrive["controller_location"] = hardDiskDrive.ControllerLocation
-		flattenedHardDiskDrive["path"] = hardDiskDrive.Path
+		flattenedHardDiskDrive["path"] = strings.ReplaceAll(hardDiskDrive.Path, "\\", "/")
 		flattenedHardDiskDrive["disk_number"] = hardDiskDrive.DiskNumber
 		flattenedHardDiskDrive["resource_pool_name"] = hardDiskDrive.ResourcePoolName
 		flattenedHardDiskDrive["support_persistent_reservations"] = hardDiskDrive.SupportPersistentReservations

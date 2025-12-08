@@ -4,7 +4,7 @@
 terraform {
   required_providers {
     hyperv = {
-      source = "registry.terraform.io/taliesins/hyperv"
+      source = "Bafbi/hyperv"
     }
   }
 }
