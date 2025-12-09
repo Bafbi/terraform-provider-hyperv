@@ -340,16 +340,19 @@ func resourceHyperVIsoImageCreate(ctx context.Context, d *schema.ResourceData, m
 	if err != nil {
 		return diag.FromErr(err)
 	}
+	d.Set("resolve_destination_iso_file_path", resolveDestinationIsoFilePath)
 
 	resolveDestinationZipFilePath, err := ensureFileStateCreate(ctx, d, c, "zip")
 	if err != nil {
 		return diag.FromErr(err)
 	}
+	d.Set("resolve_destination_zip_file_path", resolveDestinationZipFilePath)
 
 	resolveDestinationBootFilePath, err := ensureFileStateCreate(ctx, d, c, "boot")
 	if err != nil {
 		return diag.FromErr(err)
 	}
+	d.Set("resolve_destination_boot_file_path", resolveDestinationBootFilePath)
 
 	err = c.CreateOrUpdateIsoImage(ctx, sourceIsoFilePath, sourceIsoFilePathHash, sourceZipFilePath, sourceZipFilePathHash, sourceBootFilePath, sourceBootFilePathHash, destinationIsoFilePath, destinationZipFilePath, destinationBootFilePath, media, fileSystem, volumeName, resolveDestinationIsoFilePath, resolveDestinationZipFilePath, resolveDestinationBootFilePath)
 
@@ -558,16 +561,19 @@ func resourceHyperVIsoImageUpdate(ctx context.Context, d *schema.ResourceData, m
 	if err != nil {
 		return diag.FromErr(err)
 	}
+	d.Set("resolve_destination_iso_file_path", resolveDestinationIsoFilePath)
 
 	resolveDestinationZipFilePath, resolveDestinationZipFilePathChanged, err := ensureFileStateUpdate(ctx, d, c, "zip")
 	if err != nil {
 		return diag.FromErr(err)
 	}
+	d.Set("resolve_destination_zip_file_path", resolveDestinationZipFilePath)
 
 	resolveDestinationBootFilePath, resolveDestinationBootFilePathChanged, err := ensureFileStateUpdate(ctx, d, c, "boot")
 	if err != nil {
 		return diag.FromErr(err)
 	}
+	d.Set("resolve_destination_boot_file_path", resolveDestinationBootFilePath)
 
 	recreateDestinationIsoFilePath := false
 	if !resolveDestinationIsoFilePathChanged && (resolveDestinationZipFilePathChanged || resolveDestinationBootFilePathChanged) || ((sourceZipFilePath != "" || sourceBootFilePath != "") && (d.HasChange("iso_media_type") || d.HasChange("iso_file_system_type") || d.HasChange("volume_name"))) {
@@ -600,8 +606,19 @@ func resourceHyperVIsoImageDelete(ctx context.Context, d *schema.ResourceData, m
 	}
 
 	resolvedDestinationIsoFilePath := (d.Get("resolve_destination_iso_file_path")).(string)
+	if resolvedDestinationIsoFilePath == "" {
+		resolvedDestinationIsoFilePath = (d.Get("destination_iso_file_path")).(string)
+	}
+
 	resolvedDestinationZipFilePath := (d.Get("resolve_destination_zip_file_path")).(string)
+	if resolvedDestinationZipFilePath == "" {
+		resolvedDestinationZipFilePath = (d.Get("destination_zip_file_path")).(string)
+	}
+
 	resolvedDestinationBootFilePath := (d.Get("resolve_destination_boot_file_path")).(string)
+	if resolvedDestinationBootFilePath == "" {
+		resolvedDestinationBootFilePath = (d.Get("destination_boot_file_path")).(string)
+	}
 
 	if resolvedDestinationIsoFilePath != "" {
 		log.Printf("[INFO][iso-image][delete] deleting remote iso file: %s", resolvedDestinationIsoFilePath)
