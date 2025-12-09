@@ -59,6 +59,7 @@ resource "hyperv_iso_image" "bootstrap" {
 - `destination_zip_file_path` (String) Remote zip file path. This defaults to `$env:temp\{filename(source_zip_file_path)}`
 - `iso_file_system_type` (String) File system type for iso. Valid values to use are `none`, `iso9660`, `joliet`, `iso9660|joliet`, `udf`, `joliet|udf`, `iso9660|joliet|udf`, `unknown`.
 - `iso_media_type` (String) Media type for iso. Valid values to use are `unknown`, `cdrom`, `cdr`, `cdrw`, `dvdrom`, `dvdram`, `dvdplusr`, `dvdplusrw`, `dvdplusr_duallayer`, `dvddashr`, `dvddashrw`, `dvddashr_duallayer`, `disk`, `dvdplusrw_duallayer`, `hddvdrom`, `hddvdr`, `hddvdram`, `bdrom`, `bdr`, `bdre`.
+- `keep_on_destroy` (Boolean) If set to true, the ISO file (and associated uploaded files) will not be deleted from the Hyper-V host when the resource is destroyed.
 - `source_boot_file_path` (String) Local boot file path.
 - `source_boot_file_path_hash` (String) Hash of local boot file.
 - `source_iso_file_path` (String) Local iso file path.
