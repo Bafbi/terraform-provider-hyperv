@@ -393,17 +393,25 @@ $targetLeaf = Split-Path $path -Leaf
 $targetBaseName = [System.IO.Path]::GetFileNameWithoutExtension($targetLeaf)
 
 if (Test-Path -LiteralPath $targetDirectory) {
-    Get-ChildItem -LiteralPath $targetDirectory | Where-Object { $_.BaseName -ne $null -and $_.BaseName.StartsWith($targetBaseName) } | ForEach-Object {
-        if ($_.FullName) {
-            Remove-Item -LiteralPath $_.FullName -Force -ErrorAction SilentlyContinue
+    $filesToDelete = Get-ChildItem -LiteralPath $targetDirectory | Where-Object { $_.BaseName -ne $null -and $_.BaseName.StartsWith($targetBaseName) } | Select-Object -ExpandProperty FullName
+    
+    foreach ($file in $filesToDelete) {
+        try {
+            if (Test-Path -LiteralPath $file) {
+                Remove-Item -LiteralPath $file -Force -ErrorAction Stop
+            }
+        } catch {
+            Write-Warning "Failed to delete $file : $_"
         }
     }
 }
 `))
 
 func (c *ClientConfig) DeleteVhd(ctx context.Context, path string) (err error) {
+	// Convert to Windows path for PowerShell
+	windowsPath := api.ToWindowsPath(path)
 	err = c.WinRmClient.RunFireAndForgetScript(ctx, deleteVhdTemplate, deleteVhdArgs{
-		Path: path,
+		Path: windowsPath,
 	})
 
 	return err
