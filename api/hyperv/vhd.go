@@ -252,6 +252,10 @@ if ($vhd -and !(Test-Path $vhd.Path)) {
         elseif ($vhdType -eq [Microsoft.Vhd.PowerShell.VhdType]::Differencing) {
             $NewVhdArgs.Differencing = $true
             $NewVhdArgs.ParentPath = $vhd.ParentPath
+            
+            if ($vhd.Size -gt 0) {
+                $NewVhdArgs.SizeBytes = $vhd.Size
+            }
         }
         else {
             if ($vhdType -eq [Microsoft.Vhd.PowerShell.VhdType]::Dynamic) {

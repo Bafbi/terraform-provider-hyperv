@@ -111,7 +111,6 @@ func resourceHyperVVhd() *schema.Resource {
 					"source",
 					"source_vm",
 					"source_disk",
-					"size",
 				},
 				DiffSuppressFunc: PathDiffSuppress,
 				StateFunc:        PathStateFunc,
