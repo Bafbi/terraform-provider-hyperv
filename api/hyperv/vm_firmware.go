@@ -38,10 +38,6 @@ $bootOrders = @($vmFirmware.BootOrders | %{
 	} elseif ($bootOrder.Type -eq 'HardDiskDrive') {
 		$hardDiskDrive = Get-VM -Name "$($vmFirmware.VmName)*" | ?{$_.Name -eq $vmFirmware.VmName } | Get-VMHardDiskDrive
 
-		if ($bootOrder.Path) {
-			$hardDiskDrive = $hardDiskDrive | ?{$_.Path -ieq $bootOrder.Path}
-		}
-
 		if ($bootOrder.ControllerNumber -gt -1) {
 			$hardDiskDrive = $hardDiskDrive | ?{$_.ControllerNumber -eq $bootOrder.ControllerNumber}
 		}
@@ -50,14 +46,14 @@ $bootOrders = @($vmFirmware.BootOrders | %{
 			$hardDiskDrive = $hardDiskDrive | ?{$_.ControllerLocation -eq $bootOrder.ControllerLocation}
 		}
 
-		$hardDiskDrive
+		if ($bootOrder.Path) {
+			$hardDiskDrive = $hardDiskDrive | ?{$_.Path -ieq $bootOrder.Path}
+		}
+
+		$hardDiskDrive | Select-Object -First 1
 
 	} elseif ($bootOrder.Type -eq 'DvdDrive') {
 		$dvdDrive = Get-VM -Name "$($vmFirmware.VmName)*" | ?{$_.Name -eq $vmFirmware.VmName } | Get-VMDvdDrive
-
-		if ($bootOrder.Path) {
-			$dvdDrive = $dvdDrive | ?{$_.Path -ieq $bootOrder.Path}
-		}
 
 		if ($bootOrder.ControllerNumber -gt -1) {
 			$dvdDrive = $dvdDrive | ?{$_.ControllerNumber -eq $bootOrder.ControllerNumber}
@@ -67,9 +63,13 @@ $bootOrders = @($vmFirmware.BootOrders | %{
 			$dvdDrive = $dvdDrive | ?{$_.ControllerLocation -eq $bootOrder.ControllerLocation}
 		}
 
-		$dvdDrive
+		if ($bootOrder.Path) {
+			$dvdDrive = $dvdDrive | ?{$_.Path -ieq $bootOrder.Path}
+		}
+
+		$dvdDrive | Select-Object -First 1
 	}
-})
+} | Where-Object { $_ -ne $null })
 
 $SetVMFirmwareArgs = @{}
 $SetVMFirmwareArgs.VMName=$vmFirmware.VmName
@@ -126,7 +126,8 @@ $vmFirmwareObject = Get-VM -Name '{{.VmName}}*' | ?{$_.Name -eq '{{.VmName}}' } 
 		if ($_.BootType -eq 'Network') {
 			@{Type='NetworkAdapter';NetworkAdapterName=$_.Device.Name;SwitchName=$_.Device.SwitchName;MacAddress=$_.Device.MacAddress;Path='';ControllerNumber=-1;ControllerLocation=-1;}
 		} elseif ($_.BootType -eq 'Drive') {
-			@{Type=@(if ($_.Device.Name.StartsWith('Hard Drive')) { 'HardDiskDrive' } else {'DvdDrive'});NetworkAdapterName='';SwitchName='';MacAddress='';Path=$_.Device.Path;ControllerNumber=$_.Device.ControllerNumber;ControllerLocation=$_.Device.ControllerLocation;}
+			$deviceType = if ($_.Device.GetType().Name -eq 'HardDiskDrive' -or $_.Device.Name.StartsWith('Hard Drive')) { 'HardDiskDrive' } else { 'DvdDrive' }
+			@{Type=$deviceType;NetworkAdapterName='';SwitchName='';MacAddress='';Path=$_.Device.Path;ControllerNumber=$_.Device.ControllerNumber;ControllerLocation=$_.Device.ControllerLocation;}
 		}
 	})
 	EnableSecureBoot=             $_.SecureBoot
