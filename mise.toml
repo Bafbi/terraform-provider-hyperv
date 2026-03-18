@@ -1,7 +1,7 @@
 [tools]
-go = "latest"
+go = "1.25"
 "go:golang.org/x/tools/gopls" = "latest"
-golangci-lint = "2.6.0"
+"aqua:golangci-lint" = "v2.11.3"
 terraform = "latest"
 
 [env]
@@ -44,7 +44,7 @@ run = "go test ./... -v -tags=integration -timeout 120m"
 [tasks."go:format"]
 description = "Format Go and Terraform code"
 run = """
-go fmt ./...
+golangci-lint fmt
 """
 
 [tasks."example:format"]
