@@ -3,6 +3,7 @@ go = "1.25"
 "go:golang.org/x/tools/gopls" = "latest"
 "aqua:golangci-lint" = "v2.11.3"
 terraform = "latest"
+semgrep = "latest"
 
 [env]
 _.file = ".env"
@@ -54,6 +55,16 @@ run = "terraform fmt -recursive ./examples/"
 [tasks.lint]
 description = "Run linter"
 run = "golangci-lint run"
+
+[tasks.semgrep]
+description = "Run semgrep"
+run = ''' 
+semgrep scan \
+  --config .semgrep.yml \
+  --config p/golang \
+  --config p/gosec \
+  --config p/secrets
+'''
 
 [tasks."docs:generate"]
 description = "Generate documentation"
