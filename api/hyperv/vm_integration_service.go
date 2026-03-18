@@ -27,7 +27,7 @@ if ($vmIntegrationServicesObject) {
 `))
 
 func (c *ClientConfig) GetVmIntegrationServices(ctx context.Context, vmName string) (result []api.VmIntegrationService, err error) {
-	err = c.WinRmClient.RunScriptWithResult(ctx, getVmIntegrationServicesTemplate, getVmIntegrationServicesArgs{
+	err = c.ScriptRunner.RunScriptWithResult(ctx, getVmIntegrationServicesTemplate, getVmIntegrationServicesArgs{
 		VmName: vmName,
 	}, &result)
 
@@ -46,7 +46,7 @@ Get-VM -Name '{{.VmName}}*' | ?{$_.Name -eq '{{.VmName}}' } | Enable-VMIntegrati
 `))
 
 func (c *ClientConfig) EnableVmIntegrationService(ctx context.Context, vmName string, name string) (err error) {
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, enableVmIntegrationServiceTemplate, enableVmIntegrationServiceArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, enableVmIntegrationServiceTemplate, enableVmIntegrationServiceArgs{
 		VmName: vmName,
 		Name:   name,
 	})
@@ -66,7 +66,7 @@ Get-VM -Name '{{.VmName}}*' | ?{$_.Name -eq '{{.VmName}}' } | Disable-VMIntegrat
 `))
 
 func (c *ClientConfig) DisableVmIntegrationService(ctx context.Context, vmName string, name string) (err error) {
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, disableVmIntegrationServiceTemplate, disableVmIntegrationServiceArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, disableVmIntegrationServiceTemplate, disableVmIntegrationServiceArgs{
 		VmName: vmName,
 		Name:   name,
 	})

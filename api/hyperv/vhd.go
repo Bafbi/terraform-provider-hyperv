@@ -35,7 +35,7 @@ if (Test-Path $path) {
 `))
 
 func (c *ClientConfig) VhdExists(ctx context.Context, path string) (result api.VhdExists, err error) {
-	err = c.WinRmClient.RunScriptWithResult(ctx, existsVhdTemplate, existsVhdArgs{
+	err = c.ScriptRunner.RunScriptWithResult(ctx, existsVhdTemplate, existsVhdArgs{
 		Path: path,
 	}, &result)
 
@@ -315,7 +315,7 @@ func (c *ClientConfig) CreateOrUpdateVhd(ctx context.Context, path string, sourc
 		return err
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, createOrUpdateVhdTemplate, createOrUpdateVhdArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, createOrUpdateVhdTemplate, createOrUpdateVhdArgs{
 		Source:     source,
 		SourceVm:   sourceVm,
 		SourceDisk: sourceDisk,
@@ -340,7 +340,7 @@ if ($vhd.Size -ne {{.Size}}){
 
 func (c *ClientConfig) ResizeVhd(ctx context.Context, path string, size uint64) (err error) {
 	err = runVhdOperationWithRetry(ctx, path, "ResizeVhd", vhdBusyRetryInterval, vhdBusyRetryTimeout, func() error {
-		return c.WinRmClient.RunFireAndForgetScript(ctx, resizeVhdTemplate, resizeVhdArgs{
+		return c.ScriptRunner.RunFireAndForgetScript(ctx, resizeVhdTemplate, resizeVhdArgs{
 			Path: path,
 			Size: size,
 		})
@@ -389,7 +389,7 @@ if ($vhdObject){
 
 func (c *ClientConfig) GetVhd(ctx context.Context, path string) (result api.Vhd, err error) {
 	err = runVhdOperationWithRetry(ctx, path, "GetVhd", vhdBusyRetryInterval, vhdBusyRetryTimeout, func() error {
-		return c.WinRmClient.RunScriptWithResult(ctx, getVhdTemplate, getVhdArgs{
+		return c.ScriptRunner.RunScriptWithResult(ctx, getVhdTemplate, getVhdArgs{
 			Path: path,
 		}, &result)
 	})
@@ -474,7 +474,7 @@ if (Test-Path -LiteralPath $targetDirectory) {
 func (c *ClientConfig) DeleteVhd(ctx context.Context, path string) (err error) {
 	// Convert to Windows path for PowerShell
 	windowsPath := api.ToWindowsPath(path)
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, deleteVhdTemplate, deleteVhdArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, deleteVhdTemplate, deleteVhdArgs{
 		Path: windowsPath,
 	})
 

@@ -107,7 +107,7 @@ func (c *ClientConfig) CreateOrUpdateVmFirmware(
 		return err
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, createOrUpdateVmFirmwareTemplate, createOrUpdateVmFirmwareArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, createOrUpdateVmFirmwareTemplate, createOrUpdateVmFirmwareArgs{
 		VmFirmwareJson: string(vmFirmwareJson),
 	})
 
@@ -146,7 +146,7 @@ if ($vmFirmwareObject) {
 `))
 
 func (c *ClientConfig) GetVmFirmware(ctx context.Context, vmName string) (result api.VmFirmware, err error) {
-	err = c.WinRmClient.RunScriptWithResult(ctx, getVmFirmwareTemplate, getVmFirmwareArgs{
+	err = c.ScriptRunner.RunScriptWithResult(ctx, getVmFirmwareTemplate, getVmFirmwareArgs{
 		VmName: vmName,
 	}, &result)
 
