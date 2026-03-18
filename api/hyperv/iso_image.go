@@ -10,23 +10,23 @@ import (
 )
 
 func (c *ClientConfig) RemoteFileUpload(ctx context.Context, filePath string, remoteFilePath string) (err error) {
-	_, err = c.WinRmClient.UploadFile(ctx, filePath, remoteFilePath)
+	_, err = c.ScriptRunner.UploadFile(ctx, filePath, remoteFilePath)
 	return err
 }
 
 func (c *ClientConfig) RemoteFileDelete(ctx context.Context, remoteFilePath string) (err error) {
-	err = c.WinRmClient.DeleteFileOrDirectory(ctx, remoteFilePath)
+	err = c.ScriptRunner.DeleteFileOrDirectory(ctx, remoteFilePath)
 	return err
 }
 
 func (c *ClientConfig) RemoteFileExists(ctx context.Context, remoteFilePath string) (exists bool, err error) {
-	exists, err = c.WinRmClient.FileExists(ctx, remoteFilePath)
+	exists, err = c.ScriptRunner.FileExists(ctx, remoteFilePath)
 	return exists, err
 }
 
 func (c *ClientConfig) RemoteFileHash(ctx context.Context, remoteFilePath string) (hash string, err error) {
 	var result string
-	err = c.WinRmClient.RunScriptWithResult(ctx, remoteFileHashTemplate, RemoteFileHashArgs{
+	err = c.ScriptRunner.RunScriptWithResult(ctx, remoteFileHashTemplate, RemoteFileHashArgs{
 		FilePath: remoteFilePath,
 	}, &result)
 
@@ -305,7 +305,7 @@ func (c *ClientConfig) CreateOrUpdateIsoImage(ctx context.Context, sourceIsoFile
 		return fmt.Errorf("error converting object to json: %s", err)
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, createOrUpdateIsoImageTemplate, createOrUpdateIsoImageArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, createOrUpdateIsoImageTemplate, createOrUpdateIsoImageArgs{
 		IsoImageJson: string(isoImageJson),
 	})
 
@@ -357,7 +357,7 @@ if (Test-Path $expandedResolveDestinationIsoFilePath) {
 `))
 
 func (c *ClientConfig) GetIsoImage(ctx context.Context, resolveDestinationIsoFilePath string) (result api.IsoImage, err error) {
-	err = c.WinRmClient.RunScriptWithResult(ctx, getIsoImageTemplate, getIsoImageArgs{
+	err = c.ScriptRunner.RunScriptWithResult(ctx, getIsoImageTemplate, getIsoImageArgs{
 		ResolveDestinationIsoFilePath: resolveDestinationIsoFilePath,
 	}, &result)
 

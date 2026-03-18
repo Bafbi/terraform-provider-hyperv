@@ -73,7 +73,7 @@ func (c *ClientConfig) CreateOrUpdateVmProcessor(
 		return err
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, createOrUpdateVmProcessorTemplate, createOrUpdateVmProcessorArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, createOrUpdateVmProcessorTemplate, createOrUpdateVmProcessorArgs{
 		VmProcessorJson: string(vmProcessorJson),
 	})
 
@@ -109,7 +109,7 @@ if ($vmProcessorObject) {
 `))
 
 func (c *ClientConfig) GetVmProcessor(ctx context.Context, vmName string) (result api.VmProcessor, err error) {
-	err = c.WinRmClient.RunScriptWithResult(ctx, getVmProcessorTemplate, getVmProcessorArgs{
+	err = c.ScriptRunner.RunScriptWithResult(ctx, getVmProcessorTemplate, getVmProcessorArgs{
 		VmName: vmName,
 	}, &result)
 

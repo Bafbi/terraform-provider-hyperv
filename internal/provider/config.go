@@ -106,7 +106,7 @@ func (c *Config) getSSHClient() (api.Client, error) {
 
 	// Use the SSH client with the hyperv API layer
 	hyperVProvider, err := hyperv.New(&hyperv.ClientConfig{
-		WinRmClient: sshProvider.Client,
+		ScriptRunner: sshProvider.Client,
 	})
 	if err != nil {
 		return nil, err
@@ -294,6 +294,6 @@ func getHypervProvider(config *Config) (hypervProvider *api.Provider, err error)
 	}
 
 	return hyperv.New(&hyperv.ClientConfig{
-		WinRmClient: winrmHelperProvider.Client,
+		ScriptRunner: winrmHelperProvider.Client,
 	})
 }

@@ -26,7 +26,7 @@ if ($vmObject){
 `))
 
 func (c *ClientConfig) VmExists(ctx context.Context, name string) (result api.VmExists, err error) {
-	err = c.WinRmClient.RunScriptWithResult(ctx, existsVmTemplate, existsVmArgs{
+	err = c.ScriptRunner.RunScriptWithResult(ctx, existsVmTemplate, existsVmArgs{
 		Name: name,
 	}, &result)
 
@@ -168,7 +168,7 @@ func (c *ClientConfig) CreateVm(
 		return err
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, createVmTemplate, createVmArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, createVmTemplate, createVmArgs{
 		VmJson: string(vmJson),
 	})
 
@@ -215,7 +215,7 @@ if ($vmObject) {
 `))
 
 func (c *ClientConfig) GetVm(ctx context.Context, name string) (result api.Vm, err error) {
-	err = c.WinRmClient.RunScriptWithResult(ctx, getVmTemplate, getVmArgs{
+	err = c.ScriptRunner.RunScriptWithResult(ctx, getVmTemplate, getVmArgs{
 		Name: name,
 	}, &result)
 
@@ -334,7 +334,7 @@ func (c *ClientConfig) UpdateVm(
 		return err
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, updateVmTemplate, updateVmArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, updateVmTemplate, updateVmArgs{
 		VmJson: string(vmJson),
 	})
 
@@ -351,7 +351,7 @@ Get-VM -Name '{{.Name}}*' | ?{$_.Name -eq '{{.Name}}'} | Remove-VM -force
 `))
 
 func (c *ClientConfig) DeleteVm(ctx context.Context, name string) (err error) {
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, deleteVmTemplate, deleteVmArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, deleteVmTemplate, deleteVmArgs{
 		Name: name,
 	})
 
