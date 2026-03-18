@@ -15,7 +15,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -26,8 +25,10 @@ import (
 	"sync"
 	"text/template"
 	"time"
+	"unicode/utf16"
 
 	"github.com/pkg/sftp"
+	"github.com/taliesins/terraform-provider-hyperv/api/commandresult"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -137,19 +138,14 @@ func (c *ClientConfig) runCommand(ctx context.Context, command string) (stdout, 
 	session.Stdout = &stdoutBuf
 	session.Stderr = &stderrBuf
 
-	// Add environment variables if provided
-	if c.Vars != "" {
-		command = fmt.Sprintf("%s; %s", c.Vars, command)
+	commandToRun, err := c.prepareCommand(command)
+	if err != nil {
+		return "", "", -1, err
 	}
 
-	// Use privilege escalation if configured
-	if c.ElevatedUser != "" && c.ElevatedCommand != "" {
-		command = fmt.Sprintf("%s -u %s bash -c '%s'", c.ElevatedCommand, c.ElevatedUser, strings.ReplaceAll(command, "'", "'\\''"))
-	}
+	log.Printf("[DEBUG] Executing SSH command: %s", commandToRun)
 
-	log.Printf("[DEBUG] Executing SSH command: %s", command)
-
-	err = session.Run(command)
+	err = session.Run(commandToRun)
 	stdout = stdoutBuf.String()
 	stderr = stderrBuf.String()
 
@@ -162,6 +158,73 @@ func (c *ClientConfig) runCommand(ctx context.Context, command string) (stdout, 
 	}
 
 	return stdout, stderr, exitCode, nil
+}
+
+func (c *ClientConfig) prepareCommand(command string) (string, error) {
+	prepared := command
+
+	if c.Vars != "" {
+		if c.IsWindows {
+			prepared = fmt.Sprintf("%s\n%s", c.Vars, prepared)
+		} else {
+			prepared = fmt.Sprintf("%s; %s", c.Vars, prepared)
+		}
+	}
+
+	if c.IsWindows {
+		if !isPowerShellCommandInvocation(prepared) {
+			prepared = wrapPowerShellEncodedCommand(prepared)
+		}
+
+		return prepared, nil
+	}
+
+	if c.ElevatedUser != "" && c.ElevatedCommand != "" {
+		prepared = fmt.Sprintf("%s -u %s bash -c '%s'", c.ElevatedCommand, c.ElevatedUser, strings.ReplaceAll(prepared, "'", "'\\''"))
+	}
+
+	return prepared, nil
+}
+
+func isPowerShellCommandInvocation(command string) bool {
+	trimmed := strings.ToLower(strings.TrimSpace(command))
+	if trimmed == "" {
+		return false
+	}
+
+	parts := strings.Fields(trimmed)
+	if len(parts) == 0 {
+		return false
+	}
+
+	commandName := strings.Trim(parts[0], "\"'")
+
+	if commandName == "powershell" || commandName == "pwsh" || commandName == "powershell.exe" || commandName == "pwsh.exe" {
+		return true
+	}
+
+	if strings.HasSuffix(commandName, "\\powershell.exe") || strings.HasSuffix(commandName, "/powershell.exe") {
+		return true
+	}
+
+	if strings.HasSuffix(commandName, "\\pwsh.exe") || strings.HasSuffix(commandName, "/pwsh.exe") {
+		return true
+	}
+
+	return strings.HasPrefix(trimmed, "powershell ") || strings.HasPrefix(trimmed, "pwsh ")
+}
+
+func wrapPowerShellEncodedCommand(command string) string {
+	utf16Command := utf16.Encode([]rune(command))
+	bytesCommand := make([]byte, len(utf16Command)*2)
+	for i, value := range utf16Command {
+		bytesCommand[i*2] = byte(value)
+		bytesCommand[i*2+1] = byte(value >> 8)
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(bytesCommand)
+
+	return fmt.Sprintf("powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand %s", encoded)
 }
 
 // RunFireAndForgetScript executes a script without waiting for or processing results
@@ -203,18 +266,7 @@ func (c *ClientConfig) RunScriptWithResult(ctx context.Context, script *template
 		return err
 	}
 
-	stdout = strings.TrimSpace(stdout)
-
-	if exitCode != 0 {
-		return fmt.Errorf("exitStatus:%d\nstdOut:%s\nstdErr:%s\ncommand:%s", exitCode, stdout, stderr, command)
-	}
-
-	err = json.Unmarshal([]byte(stdout), &result)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal JSON result - exitStatus:%d\nstdOut:%s\nstdErr:%s\nerr:%s\ncommand:%s", exitCode, stdout, stderr, err, command)
-	}
-
-	return nil
+	return commandresult.DecodeJSON(exitCode, stdout, stderr, command, result)
 }
 
 // UploadFile uploads a local file to the remote system
