@@ -25,34 +25,13 @@ func dataSourceHyperVMachineInstance() *schema.Resource {
 			},
 
 			"path": {
-				Type:     schema.TypeString,
-				Optional: true,
-				Computed: true,
-				ForceNew: true,
-				DiffSuppressFunc: func(k, oldValue, newValue string, d *schema.ResourceData) bool {
-					if newValue == "" {
-						return true
-					}
-
-					// When specifying path on new-vm it will auto append machine name on the end
-					name := d.Get("name").(string)
-					computedPath := newValue
-					if !strings.HasSuffix(computedPath, "\\") {
-						computedPath += "\\"
-					}
-					computedPath += name
-
-					if strings.EqualFold(computedPath, oldValue) {
-						return true
-					}
-
-					if strings.EqualFold(oldValue, newValue) {
-						return true
-					}
-
-					return false
-				},
-				Description: "The path of the virtual machine.",
+				Type:             schema.TypeString,
+				Optional:         true,
+				Computed:         true,
+				ForceNew:         true,
+				StateFunc:        PathStateFunc,
+				DiffSuppressFunc: PathDiffSuppressWithMachineName,
+				Description:      "The path of the virtual machine.",
 			},
 
 			"generation": {
@@ -185,6 +164,7 @@ func dataSourceHyperVMachineInstance() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     `C:\ProgramData\Microsoft\Windows\Hyper-V`,
+				StateFunc:   PathStateFunc,
 				Description: "Specifies the folder in which the Smart Paging file is to be stored.",
 			},
 
@@ -192,6 +172,7 @@ func dataSourceHyperVMachineInstance() *schema.Resource {
 				Type:        schema.TypeString,
 				Optional:    true,
 				Default:     `C:\ProgramData\Microsoft\Windows\Hyper-V`,
+				StateFunc:   PathStateFunc,
 				Description: "Specifies the folder in which the virtual machine is to store its snapshot files.",
 			},
 
@@ -614,10 +595,12 @@ func dataSourceHyperVMachineInstance() *schema.Resource {
 							Description: "Specifies the number of the location on the controller at which the DVD drive is to be added. ",
 						},
 						"path": {
-							Type:        schema.TypeString,
-							Optional:    true,
-							Default:     "",
-							Description: "Specifies the full path to the virtual hard disk file or physical hard disk volume for the added DVD drive.",
+							Type:             schema.TypeString,
+							Optional:         true,
+							Default:          "",
+							DiffSuppressFunc: PathDiffSuppress,
+							StateFunc:        PathStateFunc,
+							Description:      "Specifies the full path to the virtual hard disk file or physical hard disk volume for the added DVD drive.",
 						},
 						"resource_pool_name": {
 							Type:        schema.TypeString,
@@ -656,6 +639,7 @@ func dataSourceHyperVMachineInstance() *schema.Resource {
 							Optional:         true,
 							Default:          "",
 							DiffSuppressFunc: api.DiffSuppressVmHardDiskPath,
+							StateFunc:        PathStateFunc,
 							Description:      "Specifies the full path of the hard disk drive file to be added.",
 						},
 						"disk_number": {
@@ -779,9 +763,10 @@ func dataSourceHyperVMachineInstance() *schema.Resource {
 										Description: "Specifies the mac address of ethernet adapter.",
 									},
 									"path": {
-										Type:     schema.TypeString,
-										Optional: true,
-										Default:  "",
+										Type:      schema.TypeString,
+										Optional:  true,
+										Default:   "",
+										StateFunc: PathStateFunc,
 										DiffSuppressFunc: func(k, oldValue, newValue string, d *schema.ResourceData) bool {
 											bootTypeKey := strings.Replace(k, "path", "boot_type", 1)
 											bootType := d.Get(bootTypeKey).(string)
@@ -789,27 +774,7 @@ func dataSourceHyperVMachineInstance() *schema.Resource {
 												return true
 											}
 
-											if newValue == "" {
-												return true
-											}
-
-											// When specifying path on new-vm it will auto append machine name on the end
-											name := d.Get("name").(string)
-											computedPath := newValue
-											if !strings.HasSuffix(computedPath, "\\") {
-												computedPath += "\\"
-											}
-											computedPath += name
-
-											if strings.EqualFold(computedPath, oldValue) {
-												return true
-											}
-
-											if strings.EqualFold(oldValue, newValue) {
-												return true
-											}
-
-											return false
+											return PathDiffSuppressWithMachineName(k, oldValue, newValue, d)
 										},
 										Description: "Specifies the file path of hard disk drive or dvd drive.",
 									},

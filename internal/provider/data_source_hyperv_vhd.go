@@ -20,11 +20,13 @@ func dataSourceHyperVVhd() *schema.Resource {
 			"path": {
 				Type:        schema.TypeString,
 				Required:    true,
+				StateFunc:   PathStateFunc,
 				Description: "Path to the existing virtual hard disk file(s) that is being created or being copied to. If a filename or relative path is specified, the virtual hard disk path is calculated relative to the current working directory. Depending on the source selected, the path will be used to determine where to copy source vhd/vhdx/vhds file to.",
 			},
 			"source": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:      schema.TypeString,
+				Optional:  true,
+				StateFunc: PathStateFunc,
 				ConflictsWith: []string{
 					"source_vm",
 					"parent_path",
@@ -64,8 +66,9 @@ func dataSourceHyperVVhd() *schema.Resource {
 				Description: "VHD type to use. Valid values to use are `Unknown`, `Fixed`, `Dynamic`, `Differencing`.",
 			},
 			"parent_path": {
-				Type:     schema.TypeString,
-				Optional: true,
+				Type:      schema.TypeString,
+				Optional:  true,
+				StateFunc: PathStateFunc,
 				ConflictsWith: []string{
 					"source",
 					"source_vm",
@@ -150,7 +153,7 @@ func datasourceHyperVVhdRead(ctx context.Context, d *schema.ResourceData, meta i
 		return diag.FromErr(err)
 	}
 
-	if vhd.Path != "" {
+	if vhd.Path == "" {
 		log.Printf("[INFO][hyperv][read] unable to retrieved vhd: %+v", path)
 		if err := d.Set("exists", false); err != nil {
 			return diag.FromErr(err)

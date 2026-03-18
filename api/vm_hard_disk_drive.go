@@ -131,10 +131,10 @@ func DiffSuppressVmHardDiskPath(key, old, new string, d *schema.ResourceData) bo
 	}
 
 	// Normalize path separators for comparison (Windows accepts both / and \)
-	oldNormalized := strings.ReplaceAll(old, "\\", "/")
-	newNormalized := strings.ReplaceAll(new, "\\", "/")
+	oldNormalized := NormalizePath(old)
+	newNormalized := NormalizePath(new)
 
-	if newNormalized == oldNormalized {
+	if strings.EqualFold(newNormalized, oldNormalized) {
 		return true
 	}
 

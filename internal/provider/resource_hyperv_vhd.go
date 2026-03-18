@@ -41,9 +41,8 @@ func resourceHyperVVhd() *schema.Resource {
 				Type:     schema.TypeString,
 				Required: true,
 				DiffSuppressFunc: func(k, oldValue, newValue string, d *schema.ResourceData) bool {
-					// Normalize path separators for comparison (Windows accepts both / and \)
-					oldNormalized := api.NormalizePath(oldValue)
-					newNormalized := api.NormalizePath(newValue)
+					oldNormalized := normalizeComparablePath(oldValue)
+					newNormalized := normalizeComparablePath(newValue)
 
 					extension := path.Ext(newNormalized)
 					computedPath := strings.TrimSuffix(newNormalized, extension)
