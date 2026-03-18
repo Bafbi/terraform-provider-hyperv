@@ -3,9 +3,18 @@ package hyperv
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"log"
+	"strings"
 	"text/template"
+	"time"
 
 	"github.com/taliesins/terraform-provider-hyperv/api"
+)
+
+const (
+	vhdBusyRetryInterval = 10 * time.Second
+	vhdBusyRetryTimeout  = 5 * time.Minute
 )
 
 type existsVhdArgs struct {
@@ -330,9 +339,11 @@ if ($vhd.Size -ne {{.Size}}){
 `))
 
 func (c *ClientConfig) ResizeVhd(ctx context.Context, path string, size uint64) (err error) {
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, resizeVhdTemplate, resizeVhdArgs{
-		Path: path,
-		Size: size,
+	err = runVhdOperationWithRetry(ctx, path, "ResizeVhd", vhdBusyRetryInterval, vhdBusyRetryTimeout, func() error {
+		return c.WinRmClient.RunFireAndForgetScript(ctx, resizeVhdTemplate, resizeVhdArgs{
+			Path: path,
+			Size: size,
+		})
 	})
 
 	return err
@@ -377,11 +388,60 @@ if ($vhdObject){
 `))
 
 func (c *ClientConfig) GetVhd(ctx context.Context, path string) (result api.Vhd, err error) {
-	err = c.WinRmClient.RunScriptWithResult(ctx, getVhdTemplate, getVhdArgs{
-		Path: path,
-	}, &result)
+	err = runVhdOperationWithRetry(ctx, path, "GetVhd", vhdBusyRetryInterval, vhdBusyRetryTimeout, func() error {
+		return c.WinRmClient.RunScriptWithResult(ctx, getVhdTemplate, getVhdArgs{
+			Path: path,
+		}, &result)
+	})
 
 	return result, err
+}
+
+func runVhdOperationWithRetry(ctx context.Context, path string, operationName string, retryInterval time.Duration, timeout time.Duration, run func() error) error {
+	deadline := time.Now().Add(timeout)
+	attempt := 1
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return fmt.Errorf("%s canceled before retrying VHD operation for path %q: %w", operationName, path, err)
+		}
+
+		err := run()
+		if err == nil {
+			return nil
+		}
+
+		if !isVhdResourceBusyError(err) {
+			return err
+		}
+
+		if time.Now().After(deadline) {
+			return fmt.Errorf("%s timed out waiting for VHD path %q to be ready after %s: %w", operationName, path, timeout, err)
+		}
+
+		log.Printf("[WARN][hyperv][vhd] %s retrying for VHD path %q after transient lock error (attempt %d): %s", operationName, path, attempt, err)
+		attempt++
+
+		timer := time.NewTimer(retryInterval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return fmt.Errorf("%s canceled while waiting for VHD path %q to be ready: %w", operationName, path, ctx.Err())
+		case <-timer.C:
+		}
+	}
+}
+
+func isVhdResourceBusyError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errMessage := strings.ToLower(err.Error())
+
+	return strings.Contains(errMessage, "objectinuse") ||
+		strings.Contains(errMessage, "resourcebusy") ||
+		strings.Contains(errMessage, "object is in use")
 }
 
 type deleteVhdArgs struct {
