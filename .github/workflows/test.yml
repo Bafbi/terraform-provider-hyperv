@@ -6,18 +6,18 @@ name: Tests
 on:
   pull_request:
     paths-ignore:
-      - 'README.md'
-      - 'docs/**'
-      - 'examples/**'
+      - "README.md"
+      - "docs/**"
+      - "examples/**"
   push:
     branches:
       - main
       - master
-      - 'feat/**'
+      - "feat/**"
     paths-ignore:
-      - 'README.md'
-      - 'docs/**'
-      - 'examples/**'
+      - "README.md"
+      - "docs/**"
+      - "examples/**"
 
 # Testing only needs permissions to read the repository contents.
 permissions:
@@ -33,17 +33,16 @@ jobs:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
         with:
-          version: 2024.3.13 # [default: latest] mise version to install
+          version: 2026.3.9 # [default: latest] mise version to install
           install: true # [default: true] run `mise install`
           cache: true # [default: true] cache mise using GitHub's cache
           experimental: true # [default: false] enable experimental features
-          # automatically write this mise.toml file
-      
+
       - name: Run build task
         run: mise run build
 
   lint:
-    name : Lint
+    name: Lint
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -51,11 +50,10 @@ jobs:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
         with:
-          version: 2024.3.13 # [default: latest] mise version to install
+          version: 2026.3.9 # [default: latest] mise version to install
           install: true # [default: true] run `mise install`
           cache: true # [default: true] cache mise using GitHub's cache
           experimental: true # [default: false] enable experimental features
-          # automatically write this mise.toml file
 
       - name: Run lint task
         run: mise run lint
@@ -69,15 +67,14 @@ jobs:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
         with:
-          version: 2024.3.13 # [default: latest] mise version to install
+          version: 2026.3.9 # [default: latest] mise version to install
           install: true # [default: true] run `mise install`
           cache: true # [default: true] cache mise using GitHub's cache
           experimental: true # [default: false] enable experimental features
-          # automatically write this mise.toml file
-      
+
       - name: Run go:format task
         run: mise run go:format
-      
+
       - name: Check for differences
         run: |
           git diff --compact-summary --exit-code || \
@@ -92,15 +89,14 @@ jobs:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
         with:
-          version: 2024.3.13 # [default: latest] mise version to install
+          version: 2026.3.9 # [default: latest] mise version to install
           install: true # [default: true] run `mise install`
           cache: true # [default: true] cache mise using GitHub's cache
           experimental: true # [default: false] enable experimental features
-          # automatically write this mise.toml file
-      
+
       - name: Run docs generation task
         run: mise run docs:generate
-      
+
       - name: Check for differences
         run: |
           git diff --compact-summary --exit-code || \
@@ -116,12 +112,11 @@ jobs:
       - uses: actions/checkout@v6
       - uses: jdx/mise-action@v3
         with:
-          version: 2024.3.13 # [default: latest] mise version to install
+          version: 2026.3.9 # [default: latest] mise version to install
           install: true # [default: true] run `mise install`
           cache: true # [default: true] cache mise using GitHub's cache
           experimental: true # [default: false] enable experimental features
-          # automatically write this mise.toml file
-      
+
       - name: Run unit tests
         run: mise run test
         timeout-minutes: 5
@@ -146,20 +141,20 @@ jobs:
   #         - '1.13.*'
   #   steps:
   #     - uses: actions/checkout@v4
-      
+
   #     - uses: jdx/mise-action@v2
   #       with:
   #         version: 2025.10.20
   #         install: true
   #         cache: true
-      
+
   #     - uses: hashicorp/setup-terraform@v3
   #       with:
   #         terraform_version: ${{ matrix.terraform }}
   #         terraform_wrapper: false
-      
+
   #     - run: go mod download
-      
+
   #     # Note: Acceptance tests require a Windows Hyper-V host to run against
   #     # These tests are skipped in CI but can be run locally with TF_ACC=1
   #     - name: Run acceptance tests
