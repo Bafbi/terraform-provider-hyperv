@@ -1,13 +1,83 @@
+# semgrep.yml
 rules:
-  - id: helper-schema-ResourceData-GetOk-with-extraneous-conditional
-    languages: [go]
-    message: Zero value conditional check after `d.GetOk()` is extraneous
-    paths:
-      include:
-        - aws/
+  # -------------------------------------------------------------------------
+  # 1. Architecture & RPC Safety
+  # -------------------------------------------------------------------------
+  - id: tf-no-fmt-print
+    message: >
+      Using `fmt.Print`, `fmt.Println`, or `fmt.Printf` writes directly to stdout/stderr. 
+      Because Terraform providers communicate with the Terraform CLI over stdout via gRPC, 
+      this can corrupt the RPC connection and crash Terraform. 
+      Use `github.com/hashicorp/terraform-plugin-log/tflog` or standard `log` instead.
+    severity: ERROR
+    languages:
+      - go
     patterns:
       - pattern-either:
-        - pattern: if $VALUE, $OK := d.GetOk($KEY); $OK && $VALUE.(bool) { $BODY }
-        - pattern: if $VALUE, $OK := d.GetOk($KEY); $OK && $VALUE.(int) != 0 { $BODY }
-        - pattern: if $VALUE, $OK := d.GetOk($KEY); $OK && $VALUE.(string) != "" { $BODY }
+          - pattern: fmt.Print(...)
+          - pattern: fmt.Println(...)
+          - pattern: fmt.Printf(...)
+    paths:
+      exclude:
+        - "*_test.go"
+        - "main.go" # main.go is safe for initial startup errors
+
+  # -------------------------------------------------------------------------
+  # 2. State & Data Integrity (Terraform Plugin SDK v2)
+  # -------------------------------------------------------------------------
+  - id: tf-ignore-d-set-error
+    message: >
+      Ignoring the error returned by `d.Set()` can lead to silent failures where 
+      Terraform state is not updated correctly, causing infinite diffs on the next plan.
     severity: WARNING
+    languages:
+      - go
+    patterns:
+      # Match standard CRUD function signatures
+      - pattern-inside: func $F(..., d *schema.ResourceData, ...) $RET { ... }
+      - pattern-either:
+          - pattern: _ = d.Set(...)
+          - pattern: d.Set(...)
+      - pattern-not-inside: if $ERR := d.Set(...); $ERR != nil { ... }
+      - pattern-not-inside: if $ERR = d.Set(...); $ERR != nil { ... }
+
+  # -------------------------------------------------------------------------
+  # 3. Cloud Provider Eventual Consistency
+  # -------------------------------------------------------------------------
+  - id: tf-avoid-time-sleep
+    message: >
+      Avoid using `time.Sleep` in Terraform providers for eventual consistency. 
+      Cloud APIs can vary wildly in response times. Use Terraform's built-in 
+      `resource.RetryContext` (SDKv2) or `retry.RetryContext` (Framework) to 
+      safely poll for state changes.
+    severity: WARNING
+    languages:
+      - go
+    patterns:
+      - pattern: time.Sleep(...)
+    paths:
+      exclude:
+        - "*_test.go"
+
+  # -------------------------------------------------------------------------
+  # 4. Configuration Leakage
+  # -------------------------------------------------------------------------
+  - id: tf-resource-direct-os-getenv
+    message: >
+      Do not use `os.Getenv` directly inside Resource or Data Source CRUD operations. 
+      Configuration should be passed strictly via the Provider's schema / `meta` object. 
+      Directly reading environment variables bypasses Terraform's dependency graph 
+      and state management.
+    severity: ERROR
+    languages:
+      - go
+    patterns:
+      - pattern-either:
+          # Matches SDK v2 signature
+          - pattern-inside: func $F(..., d *schema.ResourceData, m interface{}) $RET { ... }
+          # Matches Plugin Framework signatures
+          - pattern-inside: func ($R *$OBJ) Read(ctx context.Context, req resource.ReadRequest, resp *resource.ReadResponse) { ... }
+          - pattern-inside: func ($R *$OBJ) Create(ctx context.Context, req resource.CreateRequest, resp *resource.CreateResponse) { ... }
+          - pattern-inside: func ($R *$OBJ) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) { ... }
+          - pattern-inside: func ($R *$OBJ) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) { ... }
+      - pattern: os.Getenv(...)

@@ -520,7 +520,7 @@ func createCommand(vars string, remotePath string) (commandText string, err erro
 	})
 
 	if err != nil {
-		fmt.Printf("Error creating command template: %s", err)
+		log.Printf("[ERROR] creating command template: %v", err)
 		return "", err
 	}
 
@@ -557,7 +557,7 @@ func generateElevatedRunner(client *winrm.Client, elevatedUser string, elevatedP
 	})
 
 	if err != nil {
-		fmt.Printf("Error creating elevated command template: %s", err)
+		log.Printf("[ERROR] creating elevated command template: %v", err)
 		return "", err
 	}
 

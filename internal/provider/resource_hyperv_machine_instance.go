@@ -1497,7 +1497,11 @@ func turnOffVmIfOn(ctx context.Context, data *schema.ResourceData, client api.Cl
 		}
 
 		log.Printf("[INFO][hyperv][turnOffVmIfOn] vm %#v is in a state of %#v and so wait 2 seconds for it turn off", name, vmState.State)
-		time.Sleep(2 * time.Second)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(2 * time.Second):
+		}
 
 		vmState, err = client.GetVmStatus(ctx, name)
 		if err != nil {
