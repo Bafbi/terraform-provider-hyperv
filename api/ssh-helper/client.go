@@ -187,17 +187,17 @@ func (c *ClientConfig) prepareCommand(command string) (string, error) {
 }
 
 func isPowerShellCommandInvocation(command string) bool {
-	trimmed := strings.ToLower(strings.TrimSpace(command))
+	trimmed := strings.TrimSpace(command)
 	if trimmed == "" {
 		return false
 	}
 
-	parts := strings.Fields(trimmed)
-	if len(parts) == 0 {
+	commandName, ok := extractLeadingCommandToken(trimmed)
+	if !ok {
 		return false
 	}
 
-	commandName := strings.Trim(parts[0], "\"'")
+	commandName = strings.ToLower(strings.TrimSpace(commandName))
 
 	if commandName == "powershell" || commandName == "pwsh" || commandName == "powershell.exe" || commandName == "pwsh.exe" {
 		return true
@@ -211,7 +211,41 @@ func isPowerShellCommandInvocation(command string) bool {
 		return true
 	}
 
-	return strings.HasPrefix(trimmed, "powershell ") || strings.HasPrefix(trimmed, "pwsh ")
+	trimmedLower := strings.ToLower(trimmed)
+
+	return strings.HasPrefix(trimmedLower, "powershell ") || strings.HasPrefix(trimmedLower, "pwsh ")
+}
+
+func extractLeadingCommandToken(command string) (string, bool) {
+	trimmed := strings.TrimSpace(command)
+	if trimmed == "" {
+		return "", false
+	}
+
+	if strings.HasPrefix(trimmed, "&") {
+		trimmed = strings.TrimSpace(strings.TrimPrefix(trimmed, "&"))
+		if trimmed == "" {
+			return "", false
+		}
+	}
+
+	if strings.HasPrefix(trimmed, "\"") || strings.HasPrefix(trimmed, "'") {
+		quote := trimmed[0]
+		for i := 1; i < len(trimmed); i++ {
+			if trimmed[i] == quote {
+				return trimmed[1:i], true
+			}
+		}
+
+		return strings.Trim(trimmed, "\"'"), true
+	}
+
+	parts := strings.Fields(trimmed)
+	if len(parts) == 0 {
+		return "", false
+	}
+
+	return strings.Trim(parts[0], "\"'"), true
 }
 
 func wrapPowerShellEncodedCommand(command string) string {

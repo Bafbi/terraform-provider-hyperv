@@ -423,3 +423,31 @@ func TestPrepareCommandWindowsKeepsExplicitPowerShell(t *testing.T) {
 		t.Fatalf("expected explicit powershell command unchanged, got %q", prepared)
 	}
 }
+
+func TestPrepareCommandWindowsKeepsQuotedPwshPath(t *testing.T) {
+	config := &ClientConfig{IsWindows: true}
+	explicit := `"C:\Program Files\PowerShell\7\pwsh.exe" -Command "Write-Output 'ok'"`
+
+	prepared, err := config.prepareCommand(explicit)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if prepared != explicit {
+		t.Fatalf("expected quoted pwsh path command unchanged, got %q", prepared)
+	}
+}
+
+func TestPrepareCommandWindowsKeepsCallOperatorQuotedPwshPath(t *testing.T) {
+	config := &ClientConfig{IsWindows: true}
+	explicit := `& "C:\Program Files\PowerShell\7\pwsh.exe" -Command "Write-Output 'ok'"`
+
+	prepared, err := config.prepareCommand(explicit)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if prepared != explicit {
+		t.Fatalf("expected call-operator quoted pwsh path command unchanged, got %q", prepared)
+	}
+}
