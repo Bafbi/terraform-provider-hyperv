@@ -7,6 +7,8 @@ import (
 )
 
 func TestSerializeVmHardDiskDrive(t *testing.T) {
+	t.Parallel()
+
 	vmHardDiskDriveJson, err := json.Marshal(VmHardDiskDrive{
 		Path:                          `C:\data\VirtualMachines\web_server\Virtual Hard Disks\MobyLinuxVM.vhdx`,
 		OverrideCacheAttributes:       0,
@@ -37,6 +39,8 @@ func TestSerializeVmHardDiskDrive(t *testing.T) {
 }
 
 func TestDeserializeVmHardDiskDrive(t *testing.T) {
+	t.Parallel()
+
 	var vmHardDiskDriveJson = `
 {
     "Path":  "C:\\data\\VirtualMachines\\web_server\\Virtual Hard Disks\\MobyLinuxVM.vhdx",
@@ -65,6 +69,8 @@ func TestDeserializeVmHardDiskDrive(t *testing.T) {
 }
 
 func TestDeserializeVmHardDiskDrives(t *testing.T) {
+	t.Parallel()
+
 	var vmHardDiskDrivesJson = `
 [
 {

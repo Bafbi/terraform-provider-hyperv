@@ -1,3 +1,4 @@
+//nolint:forcetypeassert // Terraform schema enforces concrete types for ResourceData values.
 package provider
 
 import (

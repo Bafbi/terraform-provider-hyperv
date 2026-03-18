@@ -8,6 +8,8 @@ import (
 )
 
 func TestComputeFileSHA256(t *testing.T) {
+	t.Parallel()
+
 	dir := t.TempDir()
 	path := filepath.Join(dir, "test.iso")
 
@@ -48,6 +50,8 @@ func TestComputeFileSHA256(t *testing.T) {
 }
 
 func TestComputeFileSHA256_NonExistent(t *testing.T) {
+	t.Parallel()
+
 	_, err := computeFileSHA256("/nonexistent/path/file.iso")
 	if err == nil {
 		t.Error("expected an error for non-existent file, got nil")

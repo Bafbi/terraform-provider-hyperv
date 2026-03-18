@@ -6,6 +6,8 @@ import (
 )
 
 func TestSerializeVmNetworkAdapter(t *testing.T) {
+	t.Parallel()
+
 	vmNetworkAdapterJson, err := json.Marshal(VmNetworkAdapter{
 		Name: "test",
 	})
@@ -22,6 +24,8 @@ func TestSerializeVmNetworkAdapter(t *testing.T) {
 }
 
 func TestDeserializeVmNetworkAdapter(t *testing.T) {
+	t.Parallel()
+
 	var vmNetworkAdapterJson = `
 {
     "Name":  "TestMachine"

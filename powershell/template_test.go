@@ -6,6 +6,8 @@ import (
 )
 
 func TestEscapeQuotesOfCommandLineTemplate(t *testing.T) {
+	t.Parallel()
+
 	command := `& { if (Test-Path variable:global:ProgressPreference){$ProgressPreference='SilentlyContinue'};;&"C:/Windows/Temp/Test.ps1";exit $LastExitCode }`
 
 	var executePowershellFromCommandLineTemplateRendered bytes.Buffer

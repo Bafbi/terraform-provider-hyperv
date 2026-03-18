@@ -27,24 +27,24 @@ func DefaultVmProcessors() (interface{}, error) {
 	return result, nil
 }
 
-func DiffSuppressVmProcessorMaximumCountPerNumaNode(key, old, new string, d *schema.ResourceData) bool {
-	log.Printf("[DEBUG] '[%s]' Comparing old value '[%v]' with new value '[%v]' ", key, old, new)
-	if new == "0" {
+func DiffSuppressVmProcessorMaximumCountPerNumaNode(key, old, newValue string, d *schema.ResourceData) bool {
+	log.Printf("[DEBUG] '[%s]' Comparing old value '[%v]' with new value '[%v]' ", key, old, newValue)
+	if newValue == "0" {
 		// We have not explicitly set a value, so allow any value as we are not tracking it
 		return true
 	}
 
-	return new == old
+	return newValue == old
 }
 
-func DiffSuppressVmProcessorMaximumCountPerNumaSocket(key, old, new string, d *schema.ResourceData) bool {
-	log.Printf("[DEBUG] '[%s]' Comparing old value '[%v]' with new value '[%v]' ", key, old, new)
-	if new == "0" {
+func DiffSuppressVmProcessorMaximumCountPerNumaSocket(key, old, newValue string, d *schema.ResourceData) bool {
+	log.Printf("[DEBUG] '[%s]' Comparing old value '[%v]' with new value '[%v]' ", key, old, newValue)
+	if newValue == "0" {
 		// We have not explicitly set a value, so allow any value as we are not tracking it
 		return true
 	}
 
-	return new == old
+	return newValue == old
 }
 
 func ExpandVmProcessors(d *schema.ResourceData) ([]VmProcessor, error) {

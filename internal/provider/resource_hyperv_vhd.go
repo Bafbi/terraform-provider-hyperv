@@ -1,3 +1,4 @@
+//nolint:forcetypeassert // Resource schema guarantees value types retrieved from Terraform state.
 package provider
 
 import (

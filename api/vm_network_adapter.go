@@ -130,13 +130,13 @@ func (d *IovInterruptModerationValue) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func DiffSuppressVmStaticMacAddress(key, old, new string, d *schema.ResourceData) bool {
+func DiffSuppressVmStaticMacAddress(key, old, newValue string, d *schema.ResourceData) bool {
 	// Static Mac Address has not been set, so we don't mind what ever value is automatically generated
-	if new == "" {
+	if newValue == "" {
 		return true
 	}
 
-	return new == old
+	return newValue == old
 }
 
 func ExpandNetworkAdapters(d *schema.ResourceData) ([]VmNetworkAdapter, error) {

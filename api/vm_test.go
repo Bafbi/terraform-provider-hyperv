@@ -6,6 +6,8 @@ import (
 )
 
 func TestSerializeVm(t *testing.T) {
+	t.Parallel()
+
 	vmJson, err := json.Marshal(Vm{
 		Name:  "test",
 		Notes: "test notes",
@@ -23,6 +25,8 @@ func TestSerializeVm(t *testing.T) {
 }
 
 func TestDeserializeVm(t *testing.T) {
+	t.Parallel()
+
 	var vmJson = `
 {
     "Name":  "TestMachine",

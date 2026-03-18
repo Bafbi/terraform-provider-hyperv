@@ -1,3 +1,4 @@
+//nolint:forcetypeassert // Provider schema enforces expected types for configured values.
 package provider
 
 import (

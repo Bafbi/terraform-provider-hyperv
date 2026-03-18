@@ -6,6 +6,8 @@ import (
 )
 
 func TestSerializeVmSwitch(t *testing.T) {
+	t.Parallel()
+
 	vmSwitchJson, err := json.Marshal(VmSwitch{
 		Name:                       "test",
 		Notes:                      "test notes",
@@ -32,6 +34,8 @@ func TestSerializeVmSwitch(t *testing.T) {
 }
 
 func TestDeserializeVmSwitch(t *testing.T) {
+	t.Parallel()
+
 	var vmSwitchJson = `
 {
     "BandwidthReservationMode":  2,

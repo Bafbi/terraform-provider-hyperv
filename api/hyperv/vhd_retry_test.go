@@ -9,6 +9,8 @@ import (
 )
 
 func TestIsVhdResourceBusyError(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name string
 		err  error
@@ -43,6 +45,8 @@ func TestIsVhdResourceBusyError(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			got := isVhdResourceBusyError(tc.err)
 			if got != tc.want {
 				t.Fatalf("isVhdResourceBusyError() = %v, want %v", got, tc.want)
@@ -52,6 +56,8 @@ func TestIsVhdResourceBusyError(t *testing.T) {
 }
 
 func TestRunVhdOperationWithRetrySucceedsAfterTransientBusyError(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	attempts := 0
 
@@ -73,6 +79,8 @@ func TestRunVhdOperationWithRetrySucceedsAfterTransientBusyError(t *testing.T) {
 }
 
 func TestRunVhdOperationWithRetryReturnsNonTransientErrorImmediately(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	attempts := 0
 
@@ -91,6 +99,8 @@ func TestRunVhdOperationWithRetryReturnsNonTransientErrorImmediately(t *testing.
 }
 
 func TestRunVhdOperationWithRetryTimesOutOnPersistentBusyError(t *testing.T) {
+	t.Parallel()
+
 	ctx := context.Background()
 	attempts := 0
 
@@ -113,6 +123,8 @@ func TestRunVhdOperationWithRetryTimesOutOnPersistentBusyError(t *testing.T) {
 }
 
 func TestRunVhdOperationWithRetryHonorsContextCancellation(t *testing.T) {
+	t.Parallel()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	attempts := 0
 

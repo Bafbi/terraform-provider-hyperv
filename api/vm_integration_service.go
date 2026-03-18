@@ -39,7 +39,7 @@ func getDefaultValueForVmIntegrationService(integrationServiceKey string, _ *sch
 	return false
 }
 
-func DiffSuppressVmIntegrationServices(key, old, new string, d *schema.ResourceData) bool {
+func DiffSuppressVmIntegrationServices(key, old, newValue string, d *schema.ResourceData) bool {
 	integrationServiceKey := strings.TrimPrefix(key, "integration_services.")
 
 	if integrationServiceKey == "%" {
@@ -47,17 +47,17 @@ func DiffSuppressVmIntegrationServices(key, old, new string, d *schema.ResourceD
 		return true
 	}
 
-	if new == "" {
+	if newValue == "" {
 		// We have not explicitly set a value, so allow any value as we are not tracking it
 		return true
 	}
 
-	newValue, newValueError := strconv.ParseBool(new)
+	newBoolValue, newValueError := strconv.ParseBool(newValue)
 	oldValue, oldValueError := strconv.ParseBool(old)
 
 	if newValueError != nil {
-		newValue = getDefaultValueForVmIntegrationService(integrationServiceKey, d)
-		log.Printf("[DEBUG] '[%s]' New value '[%s]' defaulted to '[%v]' ", integrationServiceKey, new, newValue)
+		newBoolValue = getDefaultValueForVmIntegrationService(integrationServiceKey, d)
+		log.Printf("[DEBUG] '[%s]' New value '[%s]' defaulted to '[%v]' ", integrationServiceKey, newValue, newBoolValue)
 	}
 
 	if oldValueError != nil {
@@ -65,8 +65,8 @@ func DiffSuppressVmIntegrationServices(key, old, new string, d *schema.ResourceD
 		log.Printf("[DEBUG] '[%s]' Old value '[%s]' defaulted to '[%v]' ", integrationServiceKey, old, oldValue)
 	}
 
-	log.Printf("[DEBUG] '[%s]' Comparing old value '[%v]' with new value '[%v]' ", integrationServiceKey, oldValue, newValue)
-	return newValue == oldValue
+	log.Printf("[DEBUG] '[%s]' Comparing old value '[%v]' with new value '[%v]' ", integrationServiceKey, oldValue, newBoolValue)
+	return newBoolValue == oldValue
 }
 
 func GetChangedIntegrationServices(vmIntegrationServices []VmIntegrationService, d *schema.ResourceData) []VmIntegrationService {

@@ -135,7 +135,7 @@ func IntInSlice(valid []int) schema.SchemaValidateDiagFunc {
 	}
 }
 
-func IntBetween(min, max int) schema.SchemaValidateDiagFunc {
+func IntBetween(minimum, maximum int) schema.SchemaValidateDiagFunc {
 	return func(i interface{}, path cty.Path) diag.Diagnostics {
 		var diags diag.Diagnostics
 
@@ -149,10 +149,10 @@ func IntBetween(min, max int) schema.SchemaValidateDiagFunc {
 			return diags
 		}
 
-		if v < min || v > max {
+		if v < minimum || v > maximum {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
-				Summary:  fmt.Sprintf("expected %s to be in the range (%d - %d), got %d", i, min, max, v),
+				Summary:  fmt.Sprintf("expected %s to be in the range (%d - %d), got %d", i, minimum, maximum, v),
 			})
 		}
 
@@ -160,7 +160,7 @@ func IntBetween(min, max int) schema.SchemaValidateDiagFunc {
 	}
 }
 
-func ValueOrIntBetween(value, min, max int) schema.SchemaValidateDiagFunc {
+func ValueOrIntBetween(value, minimum, maximum int) schema.SchemaValidateDiagFunc {
 	return func(i interface{}, path cty.Path) diag.Diagnostics {
 		var diags diag.Diagnostics
 
@@ -178,10 +178,10 @@ func ValueOrIntBetween(value, min, max int) schema.SchemaValidateDiagFunc {
 			return diags
 		}
 
-		if v < min || v > max {
+		if v < minimum || v > maximum {
 			diags = append(diags, diag.Diagnostic{
 				Severity: diag.Error,
-				Summary:  fmt.Sprintf("expected %s to be in the range (%d - %d), got %d", i, min, max, v),
+				Summary:  fmt.Sprintf("expected %s to be in the range (%d - %d), got %d", i, minimum, maximum, v),
 			})
 
 			return diags

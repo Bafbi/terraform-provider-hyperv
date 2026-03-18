@@ -47,7 +47,9 @@ func (c *ClientConfig) RunFireAndForgetScript(ctx context.Context, script *templ
 
 	client, ok := winrmClient.(*winrm.Client)
 	if !ok {
-		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		if returnErr := c.WinRmClientPool.ReturnObject(ctx, winrmClient); returnErr != nil {
+			return fmt.Errorf("failed to cast winrmClient to *winrm.Client: additionally failed returning winrm client to pool: %w", returnErr)
+		}
 		return fmt.Errorf("failed to cast winrmClient to *winrm.Client")
 	}
 
@@ -86,7 +88,9 @@ func (c *ClientConfig) RunScriptWithResult(ctx context.Context, script *template
 
 	client, ok := winrmClient.(*winrm.Client)
 	if !ok {
-		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		if returnErr := c.WinRmClientPool.ReturnObject(ctx, winrmClient); returnErr != nil {
+			return fmt.Errorf("failed to cast winrmClient to *winrm.Client: additionally failed returning winrm client to pool: %w", returnErr)
+		}
 		return fmt.Errorf("failed to cast winrmClient to *winrm.Client")
 	}
 
@@ -123,7 +127,9 @@ func (c *ClientConfig) UploadFile(ctx context.Context, filePath string, remoteFi
 
 	client, ok := winrmClient.(*winrm.Client)
 	if !ok {
-		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		if returnErr := c.WinRmClientPool.ReturnObject(ctx, winrmClient); returnErr != nil {
+			return "", fmt.Errorf("failed to cast winrmClient to *winrm.Client: additionally failed returning winrm client to pool: %w", returnErr)
+		}
 		return "", fmt.Errorf("failed to cast winrmClient to *winrm.Client")
 	}
 
@@ -155,7 +161,9 @@ func (c *ClientConfig) UploadDirectory(ctx context.Context, rootPath string, exc
 
 	client, ok := winrmClient.(*winrm.Client)
 	if !ok {
-		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		if returnErr := c.WinRmClientPool.ReturnObject(ctx, winrmClient); returnErr != nil {
+			return "", []string{}, fmt.Errorf("failed to cast winrmClient to *winrm.Client: additionally failed returning winrm client to pool: %w", returnErr)
+		}
 		return "", []string{}, fmt.Errorf("failed to cast winrmClient to *winrm.Client")
 	}
 
@@ -187,7 +195,9 @@ func (c *ClientConfig) FileExists(ctx context.Context, remoteFilePath string) (e
 
 	client, ok := winrmClient.(*winrm.Client)
 	if !ok {
-		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		if returnErr := c.WinRmClientPool.ReturnObject(ctx, winrmClient); returnErr != nil {
+			return false, fmt.Errorf("failed to cast winrmClient to *winrm.Client: additionally failed returning winrm client to pool: %w", returnErr)
+		}
 		return false, fmt.Errorf("failed to cast winrmClient to *winrm.Client")
 	}
 
@@ -223,7 +233,9 @@ func (c *ClientConfig) DirectoryExists(ctx context.Context, remoteDirectoryPath 
 
 	client, ok := winrmClient.(*winrm.Client)
 	if !ok {
-		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		if returnErr := c.WinRmClientPool.ReturnObject(ctx, winrmClient); returnErr != nil {
+			return false, fmt.Errorf("failed to cast winrmClient to *winrm.Client: additionally failed returning winrm client to pool: %w", returnErr)
+		}
 		return false, fmt.Errorf("failed to cast winrmClient to *winrm.Client")
 	}
 
@@ -259,7 +271,9 @@ func (c *ClientConfig) DeleteFileOrDirectory(ctx context.Context, remotePath str
 
 	client, ok := winrmClient.(*winrm.Client)
 	if !ok {
-		c.WinRmClientPool.ReturnObject(ctx, winrmClient)
+		if returnErr := c.WinRmClientPool.ReturnObject(ctx, winrmClient); returnErr != nil {
+			return fmt.Errorf("failed to cast winrmClient to *winrm.Client: additionally failed returning winrm client to pool: %w", returnErr)
+		}
 		return fmt.Errorf("failed to cast winrmClient to *winrm.Client")
 	}
 

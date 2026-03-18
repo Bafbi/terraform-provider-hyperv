@@ -6,6 +6,8 @@ import (
 )
 
 func TestSerializeIsoImage(t *testing.T) {
+	t.Parallel()
+
 	isoImageJson, err := json.Marshal(IsoImage{
 		SourceIsoFilePath:              "",
 		SourceIsoFilePathHash:          "",
@@ -36,6 +38,8 @@ func TestSerializeIsoImage(t *testing.T) {
 }
 
 func TestDeserializeIsoImage(t *testing.T) {
+	t.Parallel()
+
 	var isoImageJson = `
 {
 	"SourceIsoFilePath":"",

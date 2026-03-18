@@ -3,6 +3,7 @@ package powershell
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"encoding/base64"
 	"fmt"
 	"io"
@@ -414,7 +415,7 @@ func appendContent(shell *winrm.Shell, filePath, content string) error {
 	return nil
 }
 
-func shellExecute(shell *winrm.Shell, command string, arguments ...string) (int, string, string, error) {
+func shellExecute(shell *winrm.Shell, command string) (int, string, string, error) {
 	stdOutBytes := new(bytes.Buffer)
 	stdErrBytes := new(bytes.Buffer)
 
@@ -429,10 +430,10 @@ func shellExecute(shell *winrm.Shell, command string, arguments ...string) (int,
 	}
 
 	if os.Getenv("WINRMCP_DEBUG") != "" {
-		log.Printf("[DEBUG] Shell execute: %s %s", command, arguments)
+		log.Printf("[DEBUG] Shell execute: %s", command)
 	}
 
-	cmd, err := shell.Execute(command, arguments...)
+	cmd, err := shell.ExecuteWithContext(context.Background(), command)
 
 	if err != nil {
 		return 0, "", "", err
@@ -656,10 +657,15 @@ func UploadFile(client *winrm.Client, filePath string, remoteFilePath string) (s
 	return remoteFilePath, nil
 }
 
-func getFilesInDirectory(rootPath string, excludeList []string) (fileList []string, err error) {
+func getFilesInDirectory(rootPath string, excludeList []string) ([]string, error) {
+	fileList := make([]string, 0)
 	excludeListRegex := regexp.MustCompile(strings.Join(excludeList, "|"))
-	validateRegex := len(fileList) > 0
-	err = filepath.Walk(rootPath, func(path string, info os.FileInfo, err error) error {
+	validateRegex := len(excludeList) > 0
+	err := filepath.Walk(rootPath, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+
 		if validateRegex && excludeListRegex.Match([]byte(path)) {
 			return nil
 		}
@@ -672,7 +678,6 @@ func getFilesInDirectory(rootPath string, excludeList []string) (fileList []stri
 		return nil
 	})
 	if err != nil {
-		log.Fatalf("walk error [%v]\n", err)
 		return nil, err
 	}
 	return fileList, nil

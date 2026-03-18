@@ -123,16 +123,16 @@ func (d *CacheAttributes) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
-func DiffSuppressVmHardDiskPath(key, old, new string, d *schema.ResourceData) bool {
-	log.Printf("[DEBUG] '[%s]' Comparing old value '[%v]' with new value '[%v]' ", key, old, new)
-	if new == "" {
+func DiffSuppressVmHardDiskPath(key, old, newValue string, d *schema.ResourceData) bool {
+	log.Printf("[DEBUG] '[%s]' Comparing old value '[%v]' with new value '[%v]' ", key, old, newValue)
+	if newValue == "" {
 		// We have not explicitly set a value, so allow any value as we are not tracking it
 		return true
 	}
 
 	// Normalize path separators for comparison (Windows accepts both / and \)
 	oldNormalized := NormalizePath(old)
-	newNormalized := NormalizePath(new)
+	newNormalized := NormalizePath(newValue)
 
 	if strings.EqualFold(newNormalized, oldNormalized) {
 		return true

@@ -1,3 +1,4 @@
+//nolint:forcetypeassert // Terraform schema/path state funcs provide expected concrete types.
 package provider
 
 import (
@@ -23,22 +24,22 @@ func normalizeComparablePath(path string) string {
 	return normalized
 }
 
-func PathDiffSuppress(k, old, new string, d *schema.ResourceData) bool {
-	if new == "" {
+func PathDiffSuppress(k, old, newValue string, d *schema.ResourceData) bool {
+	if newValue == "" {
 		return true
 	}
 	oldNormalized := normalizeComparablePath(old)
-	newNormalized := normalizeComparablePath(new)
+	newNormalized := normalizeComparablePath(newValue)
 	return strings.EqualFold(oldNormalized, newNormalized)
 }
 
-func PathDiffSuppressWithMachineName(k, old, new string, d *schema.ResourceData) bool {
-	if new == "" {
+func PathDiffSuppressWithMachineName(k, old, newValue string, d *schema.ResourceData) bool {
+	if newValue == "" {
 		return true
 	}
 
 	oldNormalized := normalizeComparablePath(old)
-	newNormalized := normalizeComparablePath(new)
+	newNormalized := normalizeComparablePath(newValue)
 
 	name := d.Get("name").(string)
 	computedPath := newNormalized

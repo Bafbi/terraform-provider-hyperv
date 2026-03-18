@@ -1,3 +1,4 @@
+//nolint:forcetypeassert // Resource schema guarantees value types retrieved from Terraform state.
 package provider
 
 import (
@@ -50,8 +51,18 @@ func resourceHyperVIsoImage() *schema.Resource {
 				expanded := os.ExpandEnv(sourcePath)
 				// Do not attempt to resolve ~; leave to user if needed.
 
-				if fi, err := os.Stat(expanded); err != nil || fi.IsDir() {
+				fi, statErr := os.Stat(expanded)
+				if os.IsNotExist(statErr) {
 					// file not present locally; nothing to compute
+					return nil
+				}
+
+				if statErr != nil {
+					return statErr
+				}
+
+				if fi.IsDir() {
+					// directory path; nothing to compute
 					return nil
 				}
 
@@ -355,19 +366,25 @@ func resourceHyperVIsoImageCreate(ctx context.Context, d *schema.ResourceData, m
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	d.Set("resolve_destination_iso_file_path", resolveDestinationIsoFilePath)
+	if err := d.Set("resolve_destination_iso_file_path", resolveDestinationIsoFilePath); err != nil {
+		return diag.FromErr(err)
+	}
 
 	resolveDestinationZipFilePath, err := ensureFileStateCreate(ctx, d, c, "zip")
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	d.Set("resolve_destination_zip_file_path", resolveDestinationZipFilePath)
+	if err := d.Set("resolve_destination_zip_file_path", resolveDestinationZipFilePath); err != nil {
+		return diag.FromErr(err)
+	}
 
 	resolveDestinationBootFilePath, err := ensureFileStateCreate(ctx, d, c, "boot")
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	d.Set("resolve_destination_boot_file_path", resolveDestinationBootFilePath)
+	if err := d.Set("resolve_destination_boot_file_path", resolveDestinationBootFilePath); err != nil {
+		return diag.FromErr(err)
+	}
 
 	err = c.CreateOrUpdateIsoImage(ctx, sourceIsoFilePath, sourceIsoFilePathHash, sourceZipFilePath, sourceZipFilePathHash, sourceBootFilePath, sourceBootFilePathHash, destinationIsoFilePath, destinationZipFilePath, destinationBootFilePath, media, fileSystem, volumeName, resolveDestinationIsoFilePath, resolveDestinationZipFilePath, resolveDestinationBootFilePath)
 
@@ -576,19 +593,25 @@ func resourceHyperVIsoImageUpdate(ctx context.Context, d *schema.ResourceData, m
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	d.Set("resolve_destination_iso_file_path", resolveDestinationIsoFilePath)
+	if err := d.Set("resolve_destination_iso_file_path", resolveDestinationIsoFilePath); err != nil {
+		return diag.FromErr(err)
+	}
 
 	resolveDestinationZipFilePath, resolveDestinationZipFilePathChanged, err := ensureFileStateUpdate(ctx, d, c, "zip")
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	d.Set("resolve_destination_zip_file_path", resolveDestinationZipFilePath)
+	if err := d.Set("resolve_destination_zip_file_path", resolveDestinationZipFilePath); err != nil {
+		return diag.FromErr(err)
+	}
 
 	resolveDestinationBootFilePath, resolveDestinationBootFilePathChanged, err := ensureFileStateUpdate(ctx, d, c, "boot")
 	if err != nil {
 		return diag.FromErr(err)
 	}
-	d.Set("resolve_destination_boot_file_path", resolveDestinationBootFilePath)
+	if err := d.Set("resolve_destination_boot_file_path", resolveDestinationBootFilePath); err != nil {
+		return diag.FromErr(err)
+	}
 
 	recreateDestinationIsoFilePath := false
 	if !resolveDestinationIsoFilePathChanged && (resolveDestinationZipFilePathChanged || resolveDestinationBootFilePathChanged) || ((sourceZipFilePath != "" || sourceBootFilePath != "") && (d.HasChange("iso_media_type") || d.HasChange("iso_file_system_type") || d.HasChange("volume_name"))) {

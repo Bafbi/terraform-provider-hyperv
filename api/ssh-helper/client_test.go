@@ -10,6 +10,8 @@ import (
 
 // TestClientConfig_Basic tests basic SSH client configuration
 func TestClientConfig_Basic(t *testing.T) {
+	t.Parallel()
+
 	// Skip if SSH credentials are not provided
 	host := os.Getenv("SSH_TEST_HOST")
 	if host == "" {
@@ -55,6 +57,8 @@ func TestClientConfig_Basic(t *testing.T) {
 
 // TestClientConfig_RunCommand tests running basic commands
 func TestClientConfig_RunCommand(t *testing.T) {
+	t.Parallel()
+
 	config := getTestConfig(t)
 	if config == nil {
 		return
@@ -86,6 +90,8 @@ func TestClientConfig_RunCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
 			stdout, stderr, exitCode, err := config.runCommand(ctx, tt.command)
 
 			if tt.expectError && err == nil {
@@ -103,6 +109,8 @@ func TestClientConfig_RunCommand(t *testing.T) {
 
 // TestClientConfig_FileExists tests file existence checking
 func TestClientConfig_FileExists(t *testing.T) {
+	t.Parallel()
+
 	config := getTestConfig(t)
 	if config == nil {
 		return
@@ -131,6 +139,8 @@ func TestClientConfig_FileExists(t *testing.T) {
 
 // TestClientConfig_DirectoryExists tests directory existence checking
 func TestClientConfig_DirectoryExists(t *testing.T) {
+	t.Parallel()
+
 	config := getTestConfig(t)
 	if config == nil {
 		return
@@ -159,6 +169,8 @@ func TestClientConfig_DirectoryExists(t *testing.T) {
 
 // TestClientConfig_RunScriptWithResult tests script execution with JSON result
 func TestClientConfig_RunScriptWithResult(t *testing.T) {
+	t.Parallel()
+
 	config := getTestConfig(t)
 	if config == nil {
 		return
@@ -200,6 +212,8 @@ func TestClientConfig_RunScriptWithResult(t *testing.T) {
 
 // TestClientConfig_RunFireAndForgetScript tests fire-and-forget script execution
 func TestClientConfig_RunFireAndForgetScript(t *testing.T) {
+	t.Parallel()
+
 	config := getTestConfig(t)
 	if config == nil {
 		return

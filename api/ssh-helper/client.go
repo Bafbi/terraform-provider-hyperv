@@ -116,6 +116,10 @@ func (c *ClientConfig) getSSHClient() (*ssh.Client, error) {
 
 // runCommand executes a command over SSH and returns the output
 func (c *ClientConfig) runCommand(ctx context.Context, command string) (stdout, stderr string, exitCode int, err error) {
+	if err := ctx.Err(); err != nil {
+		return "", "", -1, err
+	}
+
 	client, err := c.getSSHClient()
 	if err != nil {
 		return "", "", -1, err
@@ -230,18 +234,13 @@ func (c *ClientConfig) UploadFile(ctx context.Context, filePath string, remoteFi
 	}
 	defer f.Close()
 
-	fi, err := f.Stat()
-	if err != nil {
-		return "", fmt.Errorf("failed to stat local file: %w", err)
-	}
-
 	// If remote path is a directory or not specified, append the filename
 	if remoteFilePath == "" || strings.HasSuffix(remoteFilePath, "/") {
 		remoteFilePath = filepath.Join(remoteFilePath, filepath.Base(filePath))
 	}
 
 	// Try SFTP first (streamed)
-	err = c.uploadViaSFTP(client, f, remoteFilePath, fi.Size())
+	err = c.uploadViaSFTP(client, f, remoteFilePath)
 	if err == nil {
 		log.Printf("[INFO] Successfully uploaded file via SFTP to %s", remoteFilePath)
 		return remoteFilePath, nil
@@ -272,7 +271,7 @@ func (c *ClientConfig) UploadFile(ctx context.Context, filePath string, remoteFi
 }
 
 // uploadViaSFTP uploads a file using SFTP protocol
-func (c *ClientConfig) uploadViaSFTP(client *ssh.Client, in io.Reader, remoteFilePath string, size int64) error {
+func (c *ClientConfig) uploadViaSFTP(client *ssh.Client, in io.Reader, remoteFilePath string) error {
 	// Create SFTP client
 	sftpClient, err := sftp.NewClient(client)
 	if err != nil {
