@@ -6,10 +6,12 @@ linters:
     - durationcheck
     - errcheck
     - forcetypeassert
+    - govet
     - ineffassign
     - makezero
     - misspell
     - nilerr
+    - paralleltest
     - predeclared
     - staticcheck
     - unconvert
@@ -27,6 +29,14 @@ linters:
       - third_party$
       - builtin$
       - examples$
+  settings:
+    staticcheck:
+      checks:
+        - all
+        - '-QF1008' # could remove embedded field from selector -- https://staticcheck.io/docs/checks#QF1008
+        - '-ST1003' # struct field Id should be ID -- https://staticcheck.io/docs/checks#ST1003
+        - '-ST1005' # error strings should not be capitalized -- https://staticcheck.io/docs/checks#ST1005
+        - '-ST1016' # methods on the same type should have the same receiver name -- https://staticcheck.io/docs/checks#ST1016
 issues:
   max-issues-per-linter: 0
   max-same-issues: 0
