@@ -1,10 +1,25 @@
 [tools]
 go = "latest"
+"go:golang.org/x/tools/gopls" = "latest"
 golangci-lint = "2.6.0"
 terraform = "latest"
 
 [env]
+_.file = ".env"
+
 TF_CLI_CONFIG_FILE = ".terraformrc"
+
+[prepare.go]
+auto = true
+
+[prepare."terraformrc"]
+description = "Generate .terraformrc from template"
+sources = [".terraformrc.tpl"]
+outputs = [".terraformrc"]
+run = '''
+#!/bin/bash
+sed "s|__GOBIN__|$(go env GOBIN)|g" .terraformrc.tpl > .terraformrc  
+'''
 
 [tasks.build]
 description = "Build the provider binary"
@@ -17,25 +32,30 @@ depends = ["build"]
   
 [tasks.test]
 description = "Run unit tests"
+depends = ["go:format"]
 run = "go test ./... -v -short -timeout 10m"
 
 [tasks.testacc]
 description = "Run acceptance tests"
+depends = ["test"]
 env = { TF_ACC = "1" }
-run = "go test ./... -v -timeout 120m"
+run = "go test ./... -v -tags=integration -timeout 120m"
 
-[tasks.fmt]
+[tasks."go:format"]
 description = "Format Go and Terraform code"
 run = """
 go fmt ./...
-terraform fmt -recursive ./examples/
 """
+
+[tasks."example:format"]
+description = "Format example code"
+run = "terraform fmt -recursive ./examples/"
 
 [tasks.lint]
 description = "Run linter"
 run = "golangci-lint run"
 
-[tasks.docs]
+[tasks."docs:generate"]
 description = "Generate documentation"
 run = "go generate ./..."
 
@@ -46,58 +66,19 @@ rm -f terraform-provider-hyperv
 go clean
 """
 
-[tasks.dev-init]
-description = "Initialize dev environment for testing"
-run = """
-cd dev
-rm -rf .terraform .terraform.lock.hcl
-terraform init
-"""
-depends = ["install"]
-
-[tasks.dev-plan]
+[tasks."dev:plan"]
 description = "Run terraform plan in dev directory"
 run = "terraform -chdir=dev plan"
 depends = ["install"]
 
-[tasks.dev-apply]
+[tasks."dev:apply"]
 description = "Run terraform apply in dev directory"
 run = "terraform -chdir=dev apply"
 depends = ["install"]
 
-[tasks.dev-destroy]
+[tasks."dev:destroy"]
 description = "Run terraform destroy in dev directory"
 run = "terraform -chdir=dev destroy"
-
-[tasks.setup]
-description = "Initial setup and install dependencies"
-run = """
-echo "Setting up terraform-provider-hyperv development environment..."
-go mod download
-go mod tidy
-echo "✅ Setup complete! Generating .terraformrc..."
-mise run config
-echo "✅ Setup finished. Run 'mise run install' to build and install the provider."
-"""
-
-[tasks.config]
-description = "Generate .terraformrc with dynamic paths"
-run = """
-# Generate .terraformrc using template
-GOBIN=$(go env GOBIN)
-if [ -z "$GOBIN" ]; then
-  GOPATH=$(go env GOPATH)
-  GOBIN="$GOPATH/bin"
-fi
-
-if [ -f ".terraformrc.tpl" ]; then
-  sed "s|__GOBIN__|$GOBIN|g" .terraformrc.tpl > .terraformrc
-  echo "✅ Generated .terraformrc from template with GOBIN=$GOBIN"
-else
-  echo "❌ Template .terraformrc.tpl not found in workspace root"
-  exit 1
-fi
-"""
 
 [tasks.verify]
 description = "Verify the installation"

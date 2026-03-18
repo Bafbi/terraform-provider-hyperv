@@ -1,0 +1,13 @@
+{
+  "$schema": "https://btca.dev/btca.schema.json",
+  "dataDirectory": ".btca",
+  "resources": [
+    {
+      "type": "git",
+      "name": "terraform-plugin-sdk",
+      "url": "https://github.com/hashicorp/terraform-plugin-sdk",
+      "branch": "main",
+      "specialNotes": "Terraform Plugin SDK enables building plugins (providers) to manage any service providers or custom in-house solutions"
+    }
+  ]
+}

@@ -30,22 +30,35 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
-      
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
         with:
-          version: 2025.10.20
-          install: true
-          cache: true
+          version: 2024.12.14 # [default: latest] mise version to install
+          install: true # [default: true] run `mise install`
+          cache: true # [default: true] cache mise using GitHub's cache
+          experimental: true # [default: false] enable experimental features
+          # automatically write this mise.toml file
       
-      - run: go mod download
-      
-      - run: go build -v .
-      
-      - name: Run linters
-        uses: golangci/golangci-lint-action@v8
+      - name: Run build task
+        run: mise run build
+
+  lint:
+    name : Lint
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
         with:
-          version: latest
+          version: 2024.12.14 # [default: latest] mise version to install
+          install: true # [default: true] run `mise install`
+          cache: true # [default: true] cache mise using GitHub's cache
+          experimental: true # [default: false] enable experimental features
+          # automatically write this mise.toml file
+
+      - name: Run lint task
+        run: mise run lint
 
   # Run go fmt and check for differences
   format:
@@ -53,20 +66,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
-      
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
         with:
-          version: 2025.10.20
-          install: true
-          cache: true
+          version: 2024.12.14 # [default: latest] mise version to install
+          install: true # [default: true] run `mise install`
+          cache: true # [default: true] cache mise using GitHub's cache
+          experimental: true # [default: false] enable experimental features
+          # automatically write this mise.toml file
       
-      - run: go fmt ./...
+      - name: Run go:format task
+        run: mise run go:format
       
       - name: Check for differences
         run: |
           git diff --compact-summary --exit-code || \
-            (echo; echo "Unexpected difference after go fmt. Please run 'go fmt ./...' and commit."; exit 1)
+            (echo; echo "Unexpected difference after go fmt. Please run 'mise run go:format' and commit."; exit 1)
 
   # Ensure generated code is up to date
   generate:
@@ -74,25 +89,22 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
         with:
-          version: 2025.10.20
-          install: true
-          cache: true
+          version: 2024.12.14 # [default: latest] mise version to install
+          install: true # [default: true] run `mise install`
+          cache: true # [default: true] cache mise using GitHub's cache
+          experimental: true # [default: false] enable experimental features
+          # automatically write this mise.toml file
       
-      # We need the latest version of Terraform for our documentation generation to use
-      - uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_wrapper: false
-      
-      - run: mise run docs
+      - name: Run docs generation task
+        run: mise run docs:generate
       
       - name: Check for differences
         run: |
           git diff --compact-summary --exit-code || \
-            (echo; echo "Unexpected difference in directories after code generation. Run 'mise run docs' command and commit."; exit 1)
+            (echo; echo "Unexpected difference in directories after code generation. Run 'mise run docs:generate' command and commit."; exit 1)
 
   # Run unit tests
   test-unit:
@@ -101,18 +113,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@v6
+      - uses: jdx/mise-action@v3
         with:
-          version: 2025.10.20
-          install: true
-          cache: true
-      
-      - run: go mod download
+          version: 2024.12.14 # [default: latest] mise version to install
+          install: true # [default: true] run `mise install`
+          cache: true # [default: true] cache mise using GitHub's cache
+          experimental: true # [default: false] enable experimental features
+          # automatically write this mise.toml file
       
       - name: Run unit tests
-        run: go test -v -cover -short ./...
+        run: mise run test
         timeout-minutes: 5
 
   # Run acceptance tests in a matrix with Terraform CLI versions
