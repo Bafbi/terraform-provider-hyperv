@@ -2,11 +2,13 @@ package ssh_helper
 
 import (
 	"context"
+	"encoding/base64"
 	"os"
 	"strings"
 	"testing"
 	"text/template"
 	"time"
+	"unicode/utf16"
 )
 
 // TestClientConfig_Basic tests basic SSH client configuration
@@ -364,4 +366,60 @@ func fireAndForgetTemplate(isWindows bool) string {
 		mkdir -p /tmp/hyperv-test-{{.TestID}}
 		echo "Test content" > /tmp/hyperv-test-{{.TestID}}/test.txt
 	`
+}
+
+func TestWrapPowerShellEncodedCommand(t *testing.T) {
+	command := "$ErrorActionPreference = 'Stop'\nWrite-Output '{\"ok\":true}'"
+	wrapped := wrapPowerShellEncodedCommand(command)
+
+	prefix := "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "
+	if !strings.HasPrefix(wrapped, prefix) {
+		t.Fatalf("expected command prefix %q, got %q", prefix, wrapped)
+	}
+
+	encoded := strings.TrimPrefix(wrapped, prefix)
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("failed to decode base64: %v", err)
+	}
+
+	if len(decoded)%2 != 0 {
+		t.Fatalf("expected UTF-16LE byte sequence, got odd length %d", len(decoded))
+	}
+
+	utf16Data := make([]uint16, len(decoded)/2)
+	for i := 0; i < len(utf16Data); i++ {
+		utf16Data[i] = uint16(decoded[i*2]) | uint16(decoded[i*2+1])<<8
+	}
+
+	if got := string(utf16.Decode(utf16Data)); got != command {
+		t.Fatalf("expected decoded command %q, got %q", command, got)
+	}
+}
+
+func TestPrepareCommandWindowsWrapsPowerShell(t *testing.T) {
+	config := &ClientConfig{IsWindows: true}
+
+	prepared, err := config.prepareCommand("$x = 1\nWrite-Output $x")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if !strings.HasPrefix(prepared, "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ") {
+		t.Fatalf("expected encoded powershell command, got %q", prepared)
+	}
+}
+
+func TestPrepareCommandWindowsKeepsExplicitPowerShell(t *testing.T) {
+	config := &ClientConfig{IsWindows: true}
+	explicit := `powershell -Command "Write-Output 'ok'"`
+
+	prepared, err := config.prepareCommand(explicit)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if prepared != explicit {
+		t.Fatalf("expected explicit powershell command unchanged, got %q", prepared)
+	}
 }

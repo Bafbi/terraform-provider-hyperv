@@ -3,14 +3,13 @@ package winrm_helper
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"log"
-	"strings"
 	"text/template"
 
 	pool "github.com/jolestar/go-commons-pool/v2"
 	"github.com/masterzen/winrm"
+	"github.com/taliesins/terraform-provider-hyperv/api/commandresult"
 	"github.com/taliesins/terraform-provider-hyperv/powershell"
 )
 
@@ -106,14 +105,7 @@ func (c *ClientConfig) RunScriptWithResult(ctx context.Context, script *template
 		return err2
 	}
 
-	stdout = strings.TrimSpace(stdout)
-
-	err = json.Unmarshal([]byte(stdout), &result)
-	if err != nil {
-		return fmt.Errorf("exitStatus:%d\nstdOut:%s\nstdErr:%s\nerr:%s\ncommand:%s", exitStatus, stdout, stderr, err, command)
-	}
-
-	return nil
+	return commandresult.DecodeJSON(exitStatus, stdout, stderr, command, result)
 }
 
 func (c *ClientConfig) UploadFile(ctx context.Context, filePath string, remoteFilePath string) (string, error) {
