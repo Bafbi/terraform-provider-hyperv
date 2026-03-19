@@ -392,8 +392,34 @@ func TestWrapPowerShellEncodedCommand(t *testing.T) {
 		utf16Data[i] = uint16(decoded[i*2]) | uint16(decoded[i*2+1])<<8
 	}
 
+	expectedCommand := "if (Test-Path variable:global:ProgressPreference) { $ProgressPreference = 'SilentlyContinue' }; " + command
+	if got := string(utf16.Decode(utf16Data)); got != expectedCommand {
+		t.Fatalf("expected decoded command %q, got %q", expectedCommand, got)
+	}
+}
+
+func TestWrapPowerShellEncodedCommandAlreadyHasProgressPreference(t *testing.T) {
+	command := "$ProgressPreference = 'SilentlyContinue'\n$ErrorActionPreference = 'Stop'\nWrite-Output 'test'"
+	wrapped := wrapPowerShellEncodedCommand(command)
+
+	prefix := "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "
+	if !strings.HasPrefix(wrapped, prefix) {
+		t.Fatalf("expected command prefix %q, got %q", prefix, wrapped)
+	}
+
+	encoded := strings.TrimPrefix(wrapped, prefix)
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("failed to decode base64: %v", err)
+	}
+
+	utf16Data := make([]uint16, len(decoded)/2)
+	for i := 0; i < len(utf16Data); i++ {
+		utf16Data[i] = uint16(decoded[i*2]) | uint16(decoded[i*2+1])<<8
+	}
+
 	if got := string(utf16.Decode(utf16Data)); got != command {
-		t.Fatalf("expected decoded command %q, got %q", command, got)
+		t.Fatalf("expected original command unchanged %q, got %q", command, got)
 	}
 }
 
