@@ -3,6 +3,7 @@ package ssh_helper
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"text/template"
 	"time"
@@ -78,7 +79,7 @@ func TestClientConfig_RunCommand(t *testing.T) {
 		},
 		{
 			name:        "List directory",
-			command:     "ls -la /tmp",
+			command:     listDirectoryCommand(config.IsWindows),
 			expectError: false,
 		},
 		{
@@ -117,23 +118,24 @@ func TestClientConfig_FileExists(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	existingFilePath, missingFilePath := fileTestPaths(config.IsWindows)
 
 	// Test file that should exist
-	exists, err := config.FileExists(ctx, "/etc/passwd")
+	exists, err := config.FileExists(ctx, existingFilePath)
 	if err != nil {
 		t.Fatalf("Failed to check file existence: %v", err)
 	}
 	if !exists {
-		t.Error("Expected /etc/passwd to exist")
+		t.Errorf("Expected %s to exist", existingFilePath)
 	}
 
 	// Test file that should not exist
-	exists, err = config.FileExists(ctx, "/tmp/nonexistent-file-12345")
+	exists, err = config.FileExists(ctx, missingFilePath)
 	if err != nil {
 		t.Fatalf("Failed to check file existence: %v", err)
 	}
 	if exists {
-		t.Error("Expected /tmp/nonexistent-file-12345 to not exist")
+		t.Errorf("Expected %s to not exist", missingFilePath)
 	}
 }
 
@@ -147,23 +149,24 @@ func TestClientConfig_DirectoryExists(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	existingDirectoryPath, missingDirectoryPath := directoryTestPaths(config.IsWindows)
 
 	// Test directory that should exist
-	exists, err := config.DirectoryExists(ctx, "/tmp")
+	exists, err := config.DirectoryExists(ctx, existingDirectoryPath)
 	if err != nil {
 		t.Fatalf("Failed to check directory existence: %v", err)
 	}
 	if !exists {
-		t.Error("Expected /tmp to exist")
+		t.Errorf("Expected %s to exist", existingDirectoryPath)
 	}
 
 	// Test directory that should not exist
-	exists, err = config.DirectoryExists(ctx, "/nonexistent-directory-12345")
+	exists, err = config.DirectoryExists(ctx, missingDirectoryPath)
 	if err != nil {
 		t.Fatalf("Failed to check directory existence: %v", err)
 	}
 	if exists {
-		t.Error("Expected /nonexistent-directory-12345 to not exist")
+		t.Errorf("Expected %s to not exist", missingDirectoryPath)
 	}
 }
 
@@ -220,12 +223,18 @@ func TestClientConfig_RunFireAndForgetScript(t *testing.T) {
 	}
 
 	ctx := context.Background()
+	baseDirectory := testBaseDirectory(config.IsWindows)
+	testDirectory := baseDirectory + "/hyperv-test-12345"
+	if config.IsWindows {
+		testDirectory = baseDirectory + "\\hyperv-test-12345"
+	}
+	testFilePath := testDirectory + "/test.txt"
+	if config.IsWindows {
+		testFilePath = testDirectory + "\\test.txt"
+	}
 
 	// Create a simple script template
-	scriptTemplate := template.Must(template.New("test").Parse(`
-		mkdir -p /tmp/hyperv-test-{{.TestID}}
-		echo "Test content" > /tmp/hyperv-test-{{.TestID}}/test.txt
-	`))
+	scriptTemplate := template.Must(template.New("test").Parse(fireAndForgetTemplate(config.IsWindows)))
 
 	args := struct {
 		TestID string
@@ -239,7 +248,7 @@ func TestClientConfig_RunFireAndForgetScript(t *testing.T) {
 	}
 
 	// Verify the file was created
-	exists, err := config.FileExists(ctx, "/tmp/hyperv-test-12345/test.txt")
+	exists, err := config.FileExists(ctx, testFilePath)
 	if err != nil {
 		t.Fatalf("Failed to check file existence: %v", err)
 	}
@@ -248,7 +257,7 @@ func TestClientConfig_RunFireAndForgetScript(t *testing.T) {
 	}
 
 	// Cleanup
-	err = config.DeleteFileOrDirectory(ctx, "/tmp/hyperv-test-12345")
+	err = config.DeleteFileOrDirectory(ctx, testDirectory)
 	if err != nil {
 		t.Logf("Warning: failed to cleanup test directory: %v", err)
 	}
@@ -282,7 +291,7 @@ func getTestConfig(t *testing.T) *ClientConfig {
 		port = 22
 	}
 
-	return &ClientConfig{
+	config := &ClientConfig{
 		Host:           host,
 		Port:           port,
 		User:           user,
@@ -290,4 +299,69 @@ func getTestConfig(t *testing.T) *ClientConfig {
 		PrivateKeyPath: privateKeyPath,
 		Timeout:        30 * time.Second,
 	}
+
+	config.IsWindows = detectWindowsHost(t, config)
+
+	return config
+}
+
+func detectWindowsHost(t *testing.T, config *ClientConfig) bool {
+	t.Helper()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	stdout, _, exitCode, err := config.runCommand(ctx, "powershell -NoProfile -NonInteractive -Command \"[System.Environment]::OSVersion.Platform\"")
+	if err != nil || exitCode != 0 {
+		t.Logf("Could not detect Windows host via PowerShell probe, defaulting to Unix mode: err=%v exitCode=%d", err, exitCode)
+		return false
+	}
+
+	return strings.Contains(strings.ToLower(strings.TrimSpace(stdout)), "win32nt")
+}
+
+func listDirectoryCommand(isWindows bool) string {
+	if isWindows {
+		return "Get-ChildItem C:\\Windows\\Temp"
+	}
+
+	return "ls -la /tmp"
+}
+
+func fileTestPaths(isWindows bool) (string, string) {
+	if isWindows {
+		return "C:\\Windows\\System32\\drivers\\etc\\hosts", "C:\\Windows\\Temp\\nonexistent-file-12345"
+	}
+
+	return "/etc/passwd", "/tmp/nonexistent-file-12345"
+}
+
+func directoryTestPaths(isWindows bool) (string, string) {
+	if isWindows {
+		return "C:\\Windows\\Temp", "C:\\Windows\\Temp\\nonexistent-directory-12345"
+	}
+
+	return "/tmp", "/nonexistent-directory-12345"
+}
+
+func testBaseDirectory(isWindows bool) string {
+	if isWindows {
+		return "C:\\Windows\\Temp"
+	}
+
+	return "/tmp"
+}
+
+func fireAndForgetTemplate(isWindows bool) string {
+	if isWindows {
+		return `
+		New-Item -ItemType Directory -Force -Path 'C:\\Windows\\Temp\\hyperv-test-{{.TestID}}' | Out-Null
+		Set-Content -Path 'C:\\Windows\\Temp\\hyperv-test-{{.TestID}}\\test.txt' -Value 'Test content'
+	`
+	}
+
+	return `
+		mkdir -p /tmp/hyperv-test-{{.TestID}}
+		echo "Test content" > /tmp/hyperv-test-{{.TestID}}/test.txt
+	`
 }
