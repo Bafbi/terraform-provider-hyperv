@@ -249,6 +249,13 @@ func extractLeadingCommandToken(command string) (string, bool) {
 }
 
 func wrapPowerShellEncodedCommand(command string) string {
+	prepend := "if (Test-Path variable:global:ProgressPreference) { $ProgressPreference = 'SilentlyContinue' }; "
+
+	trimmed := strings.TrimSpace(command)
+	if !strings.Contains(trimmed, "$ProgressPreference") {
+		command = prepend + command
+	}
+
 	utf16Command := utf16.Encode([]rune(command))
 	bytesCommand := make([]byte, len(utf16Command)*2)
 	for i, value := range utf16Command {
