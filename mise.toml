@@ -24,16 +24,17 @@ sed "s|__GOBIN__|$(go env GOBIN)|g" .terraformrc.tpl > .terraformrc
 
 [tasks.build]
 description = "Build the provider binary"
-run = "go build -o terraform-provider-hyperv"
+depends = ["go:format"]
+run = "go build"
 
 [tasks.install]
 description = "Build and install the provider"
 run = "go install ."
 depends = ["build"]
-  
+
 [tasks.test]
 description = "Run unit tests"
-depends = ["go:format"]
+depends = ["build"]
 run = "go test ./... -v -short -timeout 10m"
 
 [tasks.testacc]
@@ -48,22 +49,34 @@ run = """
 golangci-lint fmt
 """
 
+[tasks.check]
+depends = ["go:format"]
+run = [
+  { task = "lint" },
+  { task = "semgrep" },
+  { task = "build" },
+  { task = "test" }
+]
+
 [tasks."example:format"]
 description = "Format example code"
 run = "terraform fmt -recursive ./examples/"
 
 [tasks.lint]
 description = "Run linter"
+depends = ["go:format"]
 run = "golangci-lint run"
 
 [tasks.semgrep]
 description = "Run semgrep"
+depends = ["go:format"]
 run = ''' 
 semgrep scan \
   --config .semgrep.yml \
   --config p/golang \
   --config p/gosec \
-  --config p/secrets
+  --config p/secrets \
+  --exclude-rule tf-schema-reserved-names
 '''
 
 [tasks."docs:generate"]

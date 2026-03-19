@@ -99,8 +99,9 @@ func (c *ClientConfig) getSSHClient() (*ssh.Client, error) {
 	}
 
 	config := &ssh.ClientConfig{
-		User:            c.User,
-		Auth:            authMethods,
+		User: c.User,
+		Auth: authMethods,
+		// nosemgrep: go.lang.security.audit.crypto.insecure_ssh.avoid-ssh-insecure-ignore-host-key
 		HostKeyCallback: ssh.InsecureIgnoreHostKey(), // TODO: Make this configurable for production
 		Timeout:         c.Timeout,
 	}

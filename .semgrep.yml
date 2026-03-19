@@ -81,3 +81,71 @@ rules:
           - pattern-inside: func ($R *$OBJ) Update(ctx context.Context, req resource.UpdateRequest, resp *resource.UpdateResponse) { ... }
           - pattern-inside: func ($R *$OBJ) Delete(ctx context.Context, req resource.DeleteRequest, resp *resource.DeleteResponse) { ... }
       - pattern: os.Getenv(...)
+  # -------------------------------------------------------------------------
+  # 5. Enforce Context-Aware CRUD (Best Practice #3)
+  # -------------------------------------------------------------------------
+  - id: tf-enforce-context-crud
+    message: >
+      Always use Context-aware CRUD operations (CreateContext, ReadContext, UpdateContext, DeleteContext).
+      The non-context versions (Create, Read, Update, Delete) are deprecated and do not 
+      support proper timeout cancellation or context passing.
+    severity: ERROR
+    languages:
+      - go
+    patterns:
+      - pattern-either:
+          - pattern: "&schema.Resource{ ..., Create: $F, ... }"
+          - pattern: "&schema.Resource{ ..., Read: $F, ... }"
+          - pattern: "&schema.Resource{ ..., Update: $F, ... }"
+          - pattern: "&schema.Resource{ ..., Delete: $F, ... }"
+
+  # -------------------------------------------------------------------------
+  # 6. Invalid Schema Combinations (Best Practice #4)
+  # -------------------------------------------------------------------------
+  - id: tf-schema-invalid-required-combo
+    message: >
+      A schema cannot have `Required: true` combined with `Optional`, `Computed`, 
+      or `Default`. This will cause a runtime panic in the provider.
+    severity: ERROR
+    languages:
+      - go
+    patterns:
+      - pattern-either:
+          - pattern: "&schema.Schema{ ..., Required: true, ..., Optional: true, ... }"
+          - pattern: "&schema.Schema{ ..., Required: true, ..., Computed: true, ... }"
+          - pattern: "&schema.Schema{ ..., Required: true, ..., Default: $V, ... }"
+
+  # -------------------------------------------------------------------------
+  # 7. Reserved Field Names (Best Practice #11)
+  # -------------------------------------------------------------------------
+  - id: tf-schema-reserved-names
+    message: >
+      Do not use reserved Terraform names as schema keys. These conflict with 
+      Terraform's HCL meta-arguments and will cause parsing errors.
+    severity: ERROR
+    languages:
+      - go
+    patterns:
+      - pattern-inside: "map[string]*schema.Schema{ ... }"
+      - pattern-either:
+          - pattern: '"depends_on": ...'
+          - pattern: '"count": ...'
+          - pattern: '"provider": ...'
+          - pattern: '"lifecycle": ...'
+          - pattern: '"provisioner": ...'
+          - pattern: '"connection": ...'
+          - pattern: '"for_each": ...'
+
+  # -------------------------------------------------------------------------
+  # 8. Deprecated Validation (Best Practice #4 & #5)
+  # -------------------------------------------------------------------------
+  - id: tf-use-validatediagfunc
+    message: >
+      Use `ValidateDiagFunc` instead of the deprecated `ValidateFunc`. 
+      ValidateDiagFunc allows returning rich HashiCorp diagnostics with actionable 
+      summaries and detail fields rather than flat string errors.
+    severity: WARNING
+    languages:
+      - go
+    patterns:
+      - pattern: "&schema.Schema{ ..., ValidateFunc: $F, ... }"
