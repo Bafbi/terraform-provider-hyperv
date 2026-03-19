@@ -427,6 +427,33 @@ func TestWrapPowerShellEncodedCommandAlreadyHasProgressPreference(t *testing.T) 
 	}
 }
 
+func TestWrapPowerShellEncodedCommandCaseInsensitiveProgressPreference(t *testing.T) {
+	t.Parallel()
+
+	command := "$progresspreference = 'SilentlyContinue'\nWrite-Output 'test'"
+	wrapped := wrapPowerShellEncodedCommand(command)
+
+	prefix := "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "
+	if !strings.HasPrefix(wrapped, prefix) {
+		t.Fatalf("expected command prefix %q, got %q", prefix, wrapped)
+	}
+
+	encoded := strings.TrimPrefix(wrapped, prefix)
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("failed to decode base64: %v", err)
+	}
+
+	utf16Data := make([]uint16, len(decoded)/2)
+	for i := 0; i < len(utf16Data); i++ {
+		utf16Data[i] = uint16(decoded[i*2]) | uint16(decoded[i*2+1])<<8
+	}
+
+	if got := string(utf16.Decode(utf16Data)); got != command {
+		t.Fatalf("expected original command unchanged (lowercase progresspreference should be detected) %q, got %q", command, got)
+	}
+}
+
 func TestExtractLeadingCommandTokenUnclosedQuote(t *testing.T) {
 	t.Parallel()
 
@@ -451,9 +478,58 @@ func TestExtractLeadingCommandTokenUnclosedQuote(t *testing.T) {
 			expected: `unclosed`,
 		},
 		{
-			name:     "unclosed quote with tab delimiter",
+			name:     "closed quote followed by tab",
 			command:  `"/path/to/exe"` + "\t" + `arg1`,
 			expected: `/path/to/exe`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			token, ok := extractLeadingCommandToken(tt.command)
+			if !ok {
+				t.Fatalf("expected ok=true, got ok=false")
+			}
+			if token != tt.expected {
+				t.Fatalf("expected token %q, got %q", tt.expected, token)
+			}
+		})
+	}
+}
+
+func TestExtractLeadingCommandTokenUnquotedToken(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		command  string
+		expected string
+	}{
+		{
+			name:     "unquoted token unchanged",
+			command:  `echo hello world`,
+			expected: `echo`,
+		},
+		{
+			name:     "double quoted token stripped",
+			command:  `"echo" hello world`,
+			expected: `echo`,
+		},
+		{
+			name:     "single quoted token stripped",
+			command:  `'echo' hello world`,
+			expected: `echo`,
+		},
+		{
+			name:     "token ending with quote preserved",
+			command:  `echo" hello world`,
+			expected: `echo"`,
+		},
+		{
+			name:     "token starting with quote handled by_quote_branch",
+			command:  `'echo hello world`,
+			expected: `echo`,
 		},
 	}
 

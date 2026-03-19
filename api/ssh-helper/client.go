@@ -245,14 +245,21 @@ func extractLeadingCommandToken(command string) (string, bool) {
 		return "", false
 	}
 
-	return strings.Trim(parts[0], "\"'"), true
+	token := parts[0]
+	if len(token) >= 2 {
+		if (token[0] == '"' && token[len(token)-1] == '"') || (token[0] == '\'' && token[len(token)-1] == '\'') {
+			token = token[1 : len(token)-1]
+		}
+	}
+
+	return token, true
 }
 
 func wrapPowerShellEncodedCommand(command string) string {
 	prepend := "if (Test-Path variable:global:ProgressPreference) { $ProgressPreference = 'SilentlyContinue' }; "
 
 	trimmed := strings.TrimSpace(command)
-	if !strings.Contains(trimmed, "$ProgressPreference") {
+	if !strings.Contains(strings.ToLower(trimmed), "$progresspreference") {
 		command = prepend + command
 	}
 
