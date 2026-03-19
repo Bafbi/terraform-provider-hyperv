@@ -208,9 +208,7 @@ func isPowerShellCommandInvocation(command string) bool {
 		return true
 	}
 
-	trimmedLower := strings.ToLower(trimmed)
-
-	return strings.HasPrefix(trimmedLower, "powershell ") || strings.HasPrefix(trimmedLower, "pwsh ")
+	return false
 }
 
 func extractLeadingCommandToken(command string) (string, bool) {
@@ -234,7 +232,12 @@ func extractLeadingCommandToken(command string) (string, bool) {
 			}
 		}
 
-		return strings.Trim(trimmed, "\"'"), true
+		s := trimmed[1:]
+		idx := strings.IndexFunc(s, func(r rune) bool { return r == ' ' || r == '\t' || r == '\n' || r == '\r' })
+		if idx == -1 {
+			return s, true
+		}
+		return s[:idx], true
 	}
 
 	parts := strings.Fields(trimmed)

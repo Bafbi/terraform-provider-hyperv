@@ -37,6 +37,21 @@ func TestDecodeJSONEmptyStdout(t *testing.T) {
 	}
 }
 
+func TestDecodeJSONWhitespaceOnlyStdout(t *testing.T) {
+	t.Parallel()
+
+	var result map[string]interface{}
+
+	err := DecodeJSON(0, "   \n\t  ", "", "test-command", &result)
+	if err == nil {
+		t.Fatal("expected error for whitespace-only stdout")
+	}
+
+	if got := err.Error(); !strings.HasPrefix(got, "empty stdout") {
+		t.Fatalf("expected empty stdout error, got %q", err.Error())
+	}
+}
+
 func TestDecodeJSONExitStatusError(t *testing.T) {
 	t.Parallel()
 
