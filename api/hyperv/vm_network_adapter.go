@@ -193,7 +193,7 @@ func (c *ClientConfig) CreateVmNetworkAdapter(
 		return err
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, createVmNetworkAdapterTemplate, createVmNetworkAdapterArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, createVmNetworkAdapterTemplate, createVmNetworkAdapterArgs{
 		VmNetworkAdapterJson: string(vmNetworkAdapterJson),
 	})
 
@@ -264,7 +264,7 @@ if ($vmNetworkAdaptersObject) {
 func (c *ClientConfig) GetVmNetworkAdapters(ctx context.Context, vmName string, networkAdaptersWaitForIps []api.VmNetworkAdapterWaitForIp) (result []api.VmNetworkAdapter, err error) {
 	result = make([]api.VmNetworkAdapter, 0)
 
-	err = c.WinRmClient.RunScriptWithResult(ctx, getVmNetworkAdaptersTemplate, getVmNetworkAdaptersArgs{
+	err = c.ScriptRunner.RunScriptWithResult(ctx, getVmNetworkAdaptersTemplate, getVmNetworkAdaptersArgs{
 		VmName: vmName,
 	}, &result)
 
@@ -400,7 +400,7 @@ func (c *ClientConfig) WaitForVmNetworkAdaptersIps(
 		return err
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, waitForVmNetworkAdaptersIpsTemplate, waitForVmNetworkAdaptersIpsArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, waitForVmNetworkAdaptersIpsTemplate, waitForVmNetworkAdaptersIpsArgs{
 		VmName:                          vmName,
 		Timeout:                         timeout,
 		PollPeriod:                      pollPeriod,
@@ -616,7 +616,7 @@ func (c *ClientConfig) UpdateVmNetworkAdapter(
 		return err
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, updateVmNetworkAdapterTemplate, updateVmNetworkAdapterArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, updateVmNetworkAdapterTemplate, updateVmNetworkAdapterArgs{
 		VmName:               vmName,
 		Index:                index,
 		VmNetworkAdapterJson: string(vmNetworkAdapterJson),
@@ -637,7 +637,7 @@ $ErrorActionPreference = 'Stop'
 `))
 
 func (c *ClientConfig) DeleteVmNetworkAdapter(ctx context.Context, vmName string, index int) (err error) {
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, deleteVmNetworkAdapterTemplate, deleteVmNetworkAdapterArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, deleteVmNetworkAdapterTemplate, deleteVmNetworkAdapterArgs{
 		VmName: vmName,
 		Index:  index,
 	})

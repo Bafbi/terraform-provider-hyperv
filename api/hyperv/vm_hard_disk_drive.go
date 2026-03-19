@@ -74,7 +74,7 @@ func (c *ClientConfig) CreateVmHardDiskDrive(
 		return err
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, createVmHardDiskDriveTemplate, createVmHardDiskDriveArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, createVmHardDiskDriveTemplate, createVmHardDiskDriveArgs{
 		VmHardDiskDriveJson: string(vmHardDiskDriveJson),
 	})
 
@@ -112,7 +112,7 @@ if ($vmHardDiskDrivesObject) {
 func (c *ClientConfig) GetVmHardDiskDrives(ctx context.Context, vmName string) (result []api.VmHardDiskDrive, err error) {
 	result = make([]api.VmHardDiskDrive, 0)
 
-	err = c.WinRmClient.RunScriptWithResult(ctx, getVmHardDiskDrivesTemplate, getVmHardDiskDrivesArgs{
+	err = c.ScriptRunner.RunScriptWithResult(ctx, getVmHardDiskDrivesTemplate, getVmHardDiskDrivesArgs{
 		VmName: vmName,
 	}, &result)
 
@@ -203,7 +203,7 @@ func (c *ClientConfig) UpdateVmHardDiskDrive(
 		return err
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, updateVmHardDiskDriveTemplate, updateVmHardDiskDriveArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, updateVmHardDiskDriveTemplate, updateVmHardDiskDriveArgs{
 		VmName:              vmName,
 		ControllerNumber:    controllerNumber,
 		ControllerLocation:  controllerLocation,
@@ -228,7 +228,7 @@ $ErrorActionPreference = 'Stop'
 `))
 
 func (c *ClientConfig) DeleteVmHardDiskDrive(ctx context.Context, vmname string, controllerNumber int32, controllerLocation int32, controllerType api.ControllerType) (err error) {
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, deleteVmHardDiskDriveTemplate, deleteVmHardDiskDriveArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, deleteVmHardDiskDriveTemplate, deleteVmHardDiskDriveArgs{
 		VmName:             vmname,
 		ControllerNumber:   controllerNumber,
 		ControllerLocation: controllerLocation,

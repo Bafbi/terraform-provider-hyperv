@@ -29,7 +29,7 @@ if ($vmStateObject) {
 `))
 
 func (c *ClientConfig) GetVmStatus(ctx context.Context, vmName string) (result api.VmStatus, err error) {
-	err = c.WinRmClient.RunScriptWithResult(ctx, getVmStatusTemplate, getVmStatusArgs{
+	err = c.ScriptRunner.RunScriptWithResult(ctx, getVmStatusTemplate, getVmStatusArgs{
 		VmName: vmName,
 	}, &result)
 
@@ -173,7 +173,7 @@ func (c *ClientConfig) UpdateVmStatus(
 		return err
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, updateVmStatusTemplate, updateVmStatusArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, updateVmStatusTemplate, updateVmStatusArgs{
 		VmName:       vmName,
 		Timeout:      timeout,
 		PollPeriod:   pollPeriod,

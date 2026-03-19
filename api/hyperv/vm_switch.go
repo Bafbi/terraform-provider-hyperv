@@ -26,7 +26,7 @@ if ($vmSwitchObject){
 `))
 
 func (c *ClientConfig) VMSwitchExists(ctx context.Context, name string) (result api.VmSwitchExists, err error) {
-	err = c.WinRmClient.RunScriptWithResult(ctx, existsVMSwitchTemplate, existsVMSwitchArgs{
+	err = c.ScriptRunner.RunScriptWithResult(ctx, existsVMSwitchTemplate, existsVMSwitchArgs{
 		Name: name,
 	}, &result)
 
@@ -130,7 +130,7 @@ func (c *ClientConfig) CreateVMSwitch(
 		return err
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, createVMSwitchTemplate, createVMSwitchArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, createVMSwitchTemplate, createVMSwitchArgs{
 		VmSwitchJson: string(vmSwitchJson),
 	})
 
@@ -169,7 +169,7 @@ if ($vmSwitchObject){
 `))
 
 func (c *ClientConfig) GetVMSwitch(ctx context.Context, name string) (result api.VmSwitch, err error) {
-	err = c.WinRmClient.RunScriptWithResult(ctx, getVMSwitchTemplate, getVMSwitchArgs{
+	err = c.ScriptRunner.RunScriptWithResult(ctx, getVMSwitchTemplate, getVMSwitchArgs{
 		Name: name,
 	}, &result)
 
@@ -285,7 +285,7 @@ func (c *ClientConfig) UpdateVMSwitch(
 		return err
 	}
 
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, updateVMSwitchTemplate, updateVMSwitchArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, updateVMSwitchTemplate, updateVMSwitchArgs{
 		OldName:      oldName,
 		VmSwitchJson: string(vmSwitchJson),
 	})
@@ -303,7 +303,7 @@ Get-VMSwitch -Name '{{.Name}}*' | ?{$_.Name -eq '{{.Name}}'} | Remove-VMSwitch -
 `))
 
 func (c *ClientConfig) DeleteVMSwitch(ctx context.Context, name string) (err error) {
-	err = c.WinRmClient.RunFireAndForgetScript(ctx, deleteVMSwitchTemplate, deleteVMSwitchArgs{
+	err = c.ScriptRunner.RunFireAndForgetScript(ctx, deleteVMSwitchTemplate, deleteVMSwitchArgs{
 		Name: name,
 	})
 

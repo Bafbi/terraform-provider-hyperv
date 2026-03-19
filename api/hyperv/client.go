@@ -1,9 +1,10 @@
 package hyperv
 
 import (
+	"context"
+	"text/template"
+
 	"github.com/taliesins/terraform-provider-hyperv/api"
-	ssh_helper "github.com/taliesins/terraform-provider-hyperv/api/ssh-helper"
-	winrm_helper "github.com/taliesins/terraform-provider-hyperv/api/winrm-helper"
 )
 
 func New(clientConfig *ClientConfig) (*api.Provider, error) {
@@ -13,10 +14,17 @@ func New(clientConfig *ClientConfig) (*api.Provider, error) {
 }
 
 type ClientConfig struct {
-	WinRmClient winrm_helper.Client
+	ScriptRunner ScriptRunner
 }
 
-// ClientConfigSSH wraps an SSH client to be compatible with the HyperV API
-type ClientConfigSSH struct {
-	SSHClient ssh_helper.Client
+// ScriptRunner is a transport-agnostic remote script/file execution interface.
+// Implemented by both WinRM and SSH helpers.
+type ScriptRunner interface {
+	RunFireAndForgetScript(ctx context.Context, script *template.Template, args interface{}) error
+	RunScriptWithResult(ctx context.Context, script *template.Template, args interface{}, result interface{}) (err error)
+	UploadFile(ctx context.Context, filePath string, remoteFilePath string) (resolvedRemoteFilePath string, err error)
+	UploadDirectory(ctx context.Context, rootPath string, excludeList []string) (remoteRootPath string, remoteAbsoluteFilePaths []string, err error)
+	FileExists(ctx context.Context, remoteFilePath string) (exists bool, err error)
+	DirectoryExists(ctx context.Context, remoteDirectoryPath string) (exists bool, err error)
+	DeleteFileOrDirectory(ctx context.Context, remotePath string) (err error)
 }
