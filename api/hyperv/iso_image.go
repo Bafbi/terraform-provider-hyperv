@@ -25,7 +25,7 @@ func (c *ClientConfig) RemoteFileExists(ctx context.Context, remoteFilePath stri
 }
 
 func (c *ClientConfig) RemoteDirectoryExists(ctx context.Context, remoteDirectoryPath string) (exists bool, err error) {
-	exists, err = c.WinRmClient.DirectoryExists(ctx, remoteDirectoryPath)
+	exists, err = c.ScriptRunner.DirectoryExists(ctx, remoteDirectoryPath)
 	return exists, err
 }
 
