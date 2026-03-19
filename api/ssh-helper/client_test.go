@@ -369,6 +369,8 @@ func fireAndForgetTemplate(isWindows bool) string {
 }
 
 func TestWrapPowerShellEncodedCommand(t *testing.T) {
+	t.Parallel()
+
 	command := "$ErrorActionPreference = 'Stop'\nWrite-Output '{\"ok\":true}'"
 	wrapped := wrapPowerShellEncodedCommand(command)
 
@@ -399,6 +401,8 @@ func TestWrapPowerShellEncodedCommand(t *testing.T) {
 }
 
 func TestWrapPowerShellEncodedCommandAlreadyHasProgressPreference(t *testing.T) {
+	t.Parallel()
+
 	command := "$ProgressPreference = 'SilentlyContinue'\n$ErrorActionPreference = 'Stop'\nWrite-Output 'test'"
 	wrapped := wrapPowerShellEncodedCommand(command)
 
@@ -424,12 +428,11 @@ func TestWrapPowerShellEncodedCommandAlreadyHasProgressPreference(t *testing.T) 
 }
 
 func TestPrepareCommandWindowsWrapsPowerShell(t *testing.T) {
+	t.Parallel()
+
 	config := &ClientConfig{IsWindows: true}
 
-	prepared, err := config.prepareCommand("$x = 1\nWrite-Output $x")
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	prepared := config.prepareCommand("$x = 1\nWrite-Output $x")
 
 	if !strings.HasPrefix(prepared, "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ") {
 		t.Fatalf("expected encoded powershell command, got %q", prepared)
@@ -437,13 +440,12 @@ func TestPrepareCommandWindowsWrapsPowerShell(t *testing.T) {
 }
 
 func TestPrepareCommandWindowsKeepsExplicitPowerShell(t *testing.T) {
+	t.Parallel()
+
 	config := &ClientConfig{IsWindows: true}
 	explicit := `powershell -Command "Write-Output 'ok'"`
 
-	prepared, err := config.prepareCommand(explicit)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	prepared := config.prepareCommand(explicit)
 
 	if prepared != explicit {
 		t.Fatalf("expected explicit powershell command unchanged, got %q", prepared)
@@ -451,13 +453,12 @@ func TestPrepareCommandWindowsKeepsExplicitPowerShell(t *testing.T) {
 }
 
 func TestPrepareCommandWindowsKeepsQuotedPwshPath(t *testing.T) {
+	t.Parallel()
+
 	config := &ClientConfig{IsWindows: true}
 	explicit := `"C:\Program Files\PowerShell\7\pwsh.exe" -Command "Write-Output 'ok'"`
 
-	prepared, err := config.prepareCommand(explicit)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	prepared := config.prepareCommand(explicit)
 
 	if prepared != explicit {
 		t.Fatalf("expected quoted pwsh path command unchanged, got %q", prepared)
@@ -465,13 +466,12 @@ func TestPrepareCommandWindowsKeepsQuotedPwshPath(t *testing.T) {
 }
 
 func TestPrepareCommandWindowsKeepsCallOperatorQuotedPwshPath(t *testing.T) {
+	t.Parallel()
+
 	config := &ClientConfig{IsWindows: true}
 	explicit := `& "C:\Program Files\PowerShell\7\pwsh.exe" -Command "Write-Output 'ok'"`
 
-	prepared, err := config.prepareCommand(explicit)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	prepared := config.prepareCommand(explicit)
 
 	if prepared != explicit {
 		t.Fatalf("expected call-operator quoted pwsh path command unchanged, got %q", prepared)
