@@ -10,6 +10,7 @@ import (
 	log "log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -283,6 +284,54 @@ func winPath(path string) string {
 	return strings.ReplaceAll(path, "/", "\\")
 }
 
+var windowsDriveRootPattern = regexp.MustCompile(`(?i)^([a-z]:)`) // e.g. C: or V:
+
+func destinationDriveRoot(path string) string {
+	trimmed := strings.TrimSpace(strings.Trim(path, "'\""))
+	if trimmed == "" {
+		return ""
+	}
+
+	if strings.HasPrefix(strings.ToLower(trimmed), "$env:") || strings.HasPrefix(trimmed, "\\") {
+		return ""
+	}
+
+	normalized := strings.ReplaceAll(trimmed, "/", "\\")
+	matches := windowsDriveRootPattern.FindStringSubmatch(normalized)
+	if len(matches) < 2 {
+		return ""
+	}
+
+	return strings.ToUpper(matches[1]) + "\\"
+}
+
+type destinationDirectoryChecker interface {
+	RemoteDirectoryExists(ctx context.Context, path string) (exists bool, err error)
+}
+
+// validateDestinationDriveExists validates only concrete drive-qualified paths (e.g. C:\foo).
+//
+// Paths that still contain environment expressions (for example $env:TEMP\foo) are intentionally
+// skipped here because those values are host-resolved at execution time and cannot be reliably
+// pre-validated from provider-side string parsing.
+func validateDestinationDriveExists(ctx context.Context, c destinationDirectoryChecker, destinationPath string) error {
+	driveRoot := destinationDriveRoot(destinationPath)
+	if driveRoot == "" {
+		return nil
+	}
+
+	exists, err := c.RemoteDirectoryExists(ctx, driveRoot)
+	if err != nil {
+		return fmt.Errorf("failed to validate destination drive %q for path %q: %w", strings.TrimSuffix(driveRoot, "\\"), destinationPath, err)
+	}
+
+	if !exists {
+		return fmt.Errorf("destination drive %q does not exist on remote host for path %q", strings.TrimSuffix(driveRoot, "\\"), destinationPath)
+	}
+
+	return nil
+}
+
 func ensureFileStateCreate(ctx context.Context, d *schema.ResourceData, c api.Client, name string) (string, error) {
 	sourceFilePathKey := fmt.Sprintf("source_%s_file_path", name)
 	destinationFilePathKey := fmt.Sprintf("destination_%s_file_path", name)
@@ -296,6 +345,13 @@ func ensureFileStateCreate(ctx context.Context, d *schema.ResourceData, c api.Cl
 	}
 
 	if resolveDestinationFilePath != "" {
+		// Validate drive existence only after destination resolution. If the path still uses
+		// an environment expression ($env:*), validation is intentionally skipped by
+		// validateDestinationDriveExists.
+		if err := validateDestinationDriveExists(ctx, c, resolveDestinationFilePath); err != nil {
+			return "", err
+		}
+
 		log.Printf("[INFO][iso-image][create] check if file exists: %#v", resolveDestinationFilePath)
 		resolveDestinationFilePathExists, err := c.RemoteFileExists(ctx, resolveDestinationFilePath)
 		if err != nil {
@@ -493,14 +549,26 @@ func ensureFileStateUpdate(ctx context.Context, d *schema.ResourceData, c api.Cl
 		switch {
 		case newSourceFilePath == "":
 			// must delete the old filename as we have removed the source one
+			if err := validateDestinationDriveExists(ctx, c, resolveOldDestinationFilePath); err != nil {
+				return resolveNewDestinationFilePath, true, err
+			}
+
 			err := c.RemoteFileDelete(ctx, resolveOldDestinationFilePath)
 			return resolveNewDestinationFilePath, true, err
 		case oldSourceFilePath == "":
 			// must upload file as we have set a new source one
+			if err := validateDestinationDriveExists(ctx, c, resolveNewDestinationFilePath); err != nil {
+				return resolveNewDestinationFilePath, true, err
+			}
+
 			err := c.RemoteFileUpload(ctx, newSourceFilePath, resolveNewDestinationFilePath)
 			return resolveNewDestinationFilePath, true, err
 		case d.HasChange(sourceFilePathHashKey):
 			// must upload file over existing one as hash has changed
+			if err := validateDestinationDriveExists(ctx, c, resolveNewDestinationFilePath); err != nil {
+				return resolveNewDestinationFilePath, true, err
+			}
+
 			err := c.RemoteFileUpload(ctx, newSourceFilePath, resolveNewDestinationFilePath)
 			return resolveNewDestinationFilePath, true, err
 		}
@@ -520,6 +588,14 @@ func ensureFileStateUpdate(ctx context.Context, d *schema.ResourceData, c api.Cl
 		}
 
 		if resolveOldDestinationFilePath != resolveNewDestinationFilePath {
+			if err := validateDestinationDriveExists(ctx, c, resolveOldDestinationFilePath); err != nil {
+				return resolveNewDestinationFilePath, true, err
+			}
+
+			if err := validateDestinationDriveExists(ctx, c, resolveNewDestinationFilePath); err != nil {
+				return resolveNewDestinationFilePath, true, err
+			}
+
 			// must delete the old filename as we have renamed it and we are not sure if any other properties have changed
 			err := c.RemoteFileDelete(ctx, resolveOldDestinationFilePath)
 			if err != nil {
@@ -537,12 +613,22 @@ func ensureFileStateUpdate(ctx context.Context, d *schema.ResourceData, c api.Cl
 			resolveDestinationFilePath = winPath(filepath.Join(`$env:TEMP`, filepath.Base(sourceFilePath)))
 		}
 
+		// Validation occurs after resolveDestinationFilePath is computed. $env:* paths are
+		// intentionally skipped by validateDestinationDriveExists.
+		if err := validateDestinationDriveExists(ctx, c, resolveDestinationFilePath); err != nil {
+			return resolveDestinationFilePath, true, err
+		}
+
 		err := c.RemoteFileUpload(ctx, sourceFilePath, resolveDestinationFilePath)
 		return resolveDestinationFilePath, true, err
 	case sourceFilePath != "":
 		resolveDestinationFilePath := destinationFilePath
 		if resolveDestinationFilePath == "" {
 			resolveDestinationFilePath = winPath(filepath.Join(`$env:TEMP`, filepath.Base(sourceFilePath)))
+		}
+
+		if err := validateDestinationDriveExists(ctx, c, resolveDestinationFilePath); err != nil {
+			return resolveDestinationFilePath, true, err
 		}
 
 		log.Printf("[INFO][iso-image][create] check if iso exists: %#v", resolveDestinationFilePath)

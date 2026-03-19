@@ -97,6 +97,9 @@ depends = ["install"]
 
 [tasks."dev:apply"]
 description = "Run terraform apply in dev directory"
+usage = ''' 
+flag "--verbose -v"  "Show detailed output"
+'''
 run = "terraform -chdir=dev apply"
 depends = ["install"]
 

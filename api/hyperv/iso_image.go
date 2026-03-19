@@ -24,6 +24,11 @@ func (c *ClientConfig) RemoteFileExists(ctx context.Context, remoteFilePath stri
 	return exists, err
 }
 
+func (c *ClientConfig) RemoteDirectoryExists(ctx context.Context, remoteDirectoryPath string) (exists bool, err error) {
+	exists, err = c.WinRmClient.DirectoryExists(ctx, remoteDirectoryPath)
+	return exists, err
+}
+
 func (c *ClientConfig) RemoteFileHash(ctx context.Context, remoteFilePath string) (hash string, err error) {
 	var result string
 	err = c.WinRmClient.RunScriptWithResult(ctx, remoteFileHashTemplate, RemoteFileHashArgs{

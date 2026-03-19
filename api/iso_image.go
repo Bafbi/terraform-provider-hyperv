@@ -209,6 +209,7 @@ type IsoImage struct {
 
 type HypervIsoImageClient interface {
 	RemoteFileExists(ctx context.Context, path string) (exists bool, err error)
+	RemoteDirectoryExists(ctx context.Context, path string) (exists bool, err error)
 	RemoteFileDelete(ctx context.Context, path string) (err error)
 	RemoteFileUpload(ctx context.Context, filePath string, remoteFilePath string) (err error)
 	RemoteFileHash(ctx context.Context, path string) (hash string, err error)

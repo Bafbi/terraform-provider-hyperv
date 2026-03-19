@@ -334,8 +334,13 @@ func (c *ClientConfig) uploadViaCommands(client *ssh.Client, fileData []byte, re
 			dirSession, err := client.NewSession()
 			if err == nil && dirSession != nil {
 				dirCmd := fmt.Sprintf("powershell -Command \"New-Item -ItemType Directory -Force -Path '%s' | Out-Null\"", remoteDir)
-				_ = dirSession.Run(dirCmd) // Ignore error, directory might exist
+				if runErr := dirSession.Run(dirCmd); runErr != nil {
+					dirSession.Close()
+					return fmt.Errorf("failed to ensure remote directory %q: %w", remoteDir, runErr)
+				}
 				dirSession.Close()
+			} else if err != nil {
+				return fmt.Errorf("failed to create session for directory setup: %w", err)
 			}
 		} // Write file via PowerShell
 		command = fmt.Sprintf(

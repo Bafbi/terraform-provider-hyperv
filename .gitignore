@@ -113,7 +113,6 @@ terraform.rc
 
 ### VisualStudioCode ###
 .vscode/*
-!.vscode/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
@@ -160,6 +159,10 @@ $RECYCLE.BIN/
 
 terraform-provider-hyperv
 .mise/prepare-state.toml
+
+# local dev files
+dev/test.tf
+dev/tst.tf
 
 # btca local data
 .btca/
