@@ -138,10 +138,7 @@ func (c *ClientConfig) runCommand(ctx context.Context, command string) (stdout, 
 	session.Stdout = &stdoutBuf
 	session.Stderr = &stderrBuf
 
-	commandToRun, err := c.prepareCommand(command)
-	if err != nil {
-		return "", "", -1, err
-	}
+	commandToRun := c.prepareCommand(command)
 
 	log.Printf("[DEBUG] Executing SSH command: %s", commandToRun)
 
@@ -160,7 +157,7 @@ func (c *ClientConfig) runCommand(ctx context.Context, command string) (stdout, 
 	return stdout, stderr, exitCode, nil
 }
 
-func (c *ClientConfig) prepareCommand(command string) (string, error) {
+func (c *ClientConfig) prepareCommand(command string) string {
 	prepared := command
 
 	if c.Vars != "" {
@@ -176,14 +173,14 @@ func (c *ClientConfig) prepareCommand(command string) (string, error) {
 			prepared = wrapPowerShellEncodedCommand(prepared)
 		}
 
-		return prepared, nil
+		return prepared
 	}
 
 	if c.ElevatedUser != "" && c.ElevatedCommand != "" {
 		prepared = fmt.Sprintf("%s -u %s bash -c '%s'", c.ElevatedCommand, c.ElevatedUser, strings.ReplaceAll(prepared, "'", "'\\''"))
 	}
 
-	return prepared, nil
+	return prepared
 }
 
 func isPowerShellCommandInvocation(command string) bool {

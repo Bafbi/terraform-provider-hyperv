@@ -6,6 +6,8 @@ import (
 )
 
 func TestDecodeJSONSuccess(t *testing.T) {
+	t.Parallel()
+
 	var result struct {
 		Value string `json:"value"`
 	}
@@ -21,6 +23,8 @@ func TestDecodeJSONSuccess(t *testing.T) {
 }
 
 func TestDecodeJSONEmptyStdout(t *testing.T) {
+	t.Parallel()
+
 	var result map[string]interface{}
 
 	err := DecodeJSON(0, "", "", "test-command", &result)
@@ -34,6 +38,8 @@ func TestDecodeJSONEmptyStdout(t *testing.T) {
 }
 
 func TestDecodeJSONExitStatusError(t *testing.T) {
+	t.Parallel()
+
 	var result map[string]interface{}
 
 	err := DecodeJSON(1, `{"value":"ok"}`, "failed", "test-command", &result)
@@ -47,6 +53,8 @@ func TestDecodeJSONExitStatusError(t *testing.T) {
 }
 
 func TestDecodeJSONInvalidJSON(t *testing.T) {
+	t.Parallel()
+
 	var result map[string]interface{}
 
 	err := DecodeJSON(0, "not-json", "", "test-command", &result)
