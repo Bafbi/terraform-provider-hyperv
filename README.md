@@ -37,6 +37,25 @@ New-NetFirewallRule -Name sshd -DisplayName 'OpenSSH Server' `
   -Enabled True -Direction Inbound -Protocol TCP -Action Allow -LocalPort 22
 ```
 
+#### Configure OpenSSH Default Shell
+
+The provider requires PowerShell as the default shell for OpenSSH. After installing OpenSSH, run this on your Hyper-V host:
+
+```powershell
+$NewItemPropertyParams = @{
+    Path         = "HKLM:\SOFTWARE\OpenSSH"
+    Name         = "DefaultShell"
+    Value        = "C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+    PropertyType = "String"
+    Force        = $true
+}
+New-ItemProperty @NewItemPropertyParams
+```
+
+For PowerShell Core (7+), use: `C:\Program Files\PowerShell\7\powershell.exe`
+
+> **Important:** Without this configuration, the provider will fail with shell-related errors because commands are executed via SSH in PowerShell.
+
 ### 2. Configure Provider
 
 ```hcl

@@ -99,6 +99,10 @@ func (c *Config) getSSHClient() (api.Client, error) {
 		IsWindows:      true, // Hyper-V hosts are always Windows
 	}
 
+	if err := sshConfig.ValidatePowerShellShell(context.Background()); err != nil {
+		return nil, fmt.Errorf("shell validation failed: %w", err)
+	}
+
 	sshProvider, err := ssh_helper.New(sshConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create SSH client: %w", err)

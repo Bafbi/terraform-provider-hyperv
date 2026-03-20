@@ -770,3 +770,28 @@ func (c *ClientConfig) DeleteFileOrDirectory(ctx context.Context, remotePath str
 	log.Printf("[DEBUG] Successfully deleted: %s", remotePath)
 	return nil
 }
+
+// ValidatePowerShellShell verifies that PowerShell is available as the default shell
+// by executing a simple PowerShell command. Returns an error if the shell is not
+// configured to PowerShell.
+func (c *ClientConfig) ValidatePowerShellShell(ctx context.Context) error {
+	if !c.IsWindows {
+		return nil
+	}
+
+	stdout, stderr, exitCode, err := c.runCommand(ctx, "(Get-Host).Version.ToString()")
+	if err != nil {
+		return fmt.Errorf("failed to validate PowerShell shell: %w", err)
+	}
+
+	if exitCode != 0 {
+		return fmt.Errorf("PowerShell shell validation failed with exit code %d: %s", exitCode, stderr)
+	}
+
+	if strings.TrimSpace(stdout) == "" {
+		return fmt.Errorf("PowerShell shell validation failed: empty output from PowerShell command. Ensure the OpenSSH DefaultShell is set to PowerShell. See: https://learn.microsoft.com/en-us/windows-server/administration/OpenSSH/openssh-server-configuration#configuring-the-default-shell-for-openssh-in-windows")
+	}
+
+	log.Printf("[DEBUG] PowerShell shell validation successful: %s", strings.TrimSpace(stdout))
+	return nil
+}
