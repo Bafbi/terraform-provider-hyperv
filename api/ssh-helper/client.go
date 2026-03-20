@@ -15,7 +15,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -26,8 +25,10 @@ import (
 	"sync"
 	"text/template"
 	"time"
+	"unicode/utf16"
 
 	"github.com/pkg/sftp"
+	"github.com/taliesins/terraform-provider-hyperv/api/commandresult"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -137,19 +138,11 @@ func (c *ClientConfig) runCommand(ctx context.Context, command string) (stdout, 
 	session.Stdout = &stdoutBuf
 	session.Stderr = &stderrBuf
 
-	// Add environment variables if provided
-	if c.Vars != "" {
-		command = fmt.Sprintf("%s; %s", c.Vars, command)
-	}
+	commandToRun := c.prepareCommand(command)
 
-	// Use privilege escalation if configured
-	if c.ElevatedUser != "" && c.ElevatedCommand != "" {
-		command = fmt.Sprintf("%s -u %s bash -c '%s'", c.ElevatedCommand, c.ElevatedUser, strings.ReplaceAll(command, "'", "'\\''"))
-	}
+	log.Printf("[DEBUG] Executing SSH command: %s", commandToRun)
 
-	log.Printf("[DEBUG] Executing SSH command: %s", command)
-
-	err = session.Run(command)
+	err = session.Run(commandToRun)
 	stdout = stdoutBuf.String()
 	stderr = stderrBuf.String()
 
@@ -162,6 +155,128 @@ func (c *ClientConfig) runCommand(ctx context.Context, command string) (stdout, 
 	}
 
 	return stdout, stderr, exitCode, nil
+}
+
+func (c *ClientConfig) prepareCommand(command string) string {
+	prepared := command
+
+	if c.Vars != "" {
+		if c.IsWindows {
+			prepared = fmt.Sprintf("%s\n%s", c.Vars, prepared)
+		} else {
+			prepared = fmt.Sprintf("%s; %s", c.Vars, prepared)
+		}
+	}
+
+	if c.IsWindows {
+		if !isPowerShellCommandInvocation(prepared) {
+			prepared = wrapPowerShellEncodedCommand(prepared)
+		}
+
+		return prepared
+	}
+
+	if c.ElevatedUser != "" && c.ElevatedCommand != "" {
+		prepared = fmt.Sprintf("%s -u %s bash -c '%s'", c.ElevatedCommand, c.ElevatedUser, strings.ReplaceAll(prepared, "'", "'\\''"))
+	}
+
+	return prepared
+}
+
+func isPowerShellCommandInvocation(command string) bool {
+	trimmed := strings.TrimSpace(command)
+	if trimmed == "" {
+		return false
+	}
+
+	commandName, ok, wasQuoted := extractLeadingCommandToken(trimmed)
+	if !ok {
+		return false
+	}
+
+	if wasQuoted {
+		return false
+	}
+
+	commandName = strings.ToLower(strings.TrimSpace(commandName))
+
+	if commandName == "powershell" || commandName == "pwsh" || commandName == "powershell.exe" || commandName == "pwsh.exe" {
+		return true
+	}
+
+	if strings.HasSuffix(commandName, "\\powershell.exe") || strings.HasSuffix(commandName, "/powershell.exe") {
+		return true
+	}
+
+	if strings.HasSuffix(commandName, "\\pwsh.exe") || strings.HasSuffix(commandName, "/pwsh.exe") {
+		return true
+	}
+
+	return false
+}
+
+func extractLeadingCommandToken(command string) (string, bool, bool) {
+	trimmed := strings.TrimSpace(command)
+	if trimmed == "" {
+		return "", false, false
+	}
+
+	if strings.HasPrefix(trimmed, "&") {
+		trimmed = strings.TrimSpace(strings.TrimPrefix(trimmed, "&"))
+		if trimmed == "" {
+			return "", false, false
+		}
+	}
+
+	if strings.HasPrefix(trimmed, "\"") || strings.HasPrefix(trimmed, "'") {
+		quote := trimmed[0]
+		for i := 1; i < len(trimmed); i++ {
+			if trimmed[i] == quote {
+				return trimmed[1:i], true, true
+			}
+		}
+
+		s := trimmed[1:]
+		idx := strings.IndexFunc(s, func(r rune) bool { return r == ' ' || r == '\t' || r == '\n' || r == '\r' })
+		if idx == -1 {
+			return s, true, true
+		}
+		return s[:idx], true, true
+	}
+
+	parts := strings.Fields(trimmed)
+	if len(parts) == 0 {
+		return "", false, false
+	}
+
+	token := parts[0]
+	if len(token) >= 2 {
+		if (token[0] == '"' && token[len(token)-1] == '"') || (token[0] == '\'' && token[len(token)-1] == '\'') {
+			token = token[1 : len(token)-1]
+		}
+	}
+
+	return token, true, false
+}
+
+func wrapPowerShellEncodedCommand(command string) string {
+	prepend := "if (Test-Path variable:global:ProgressPreference) { $ProgressPreference = 'SilentlyContinue' }; "
+
+	trimmed := strings.TrimSpace(command)
+	if !strings.Contains(strings.ToLower(trimmed), "$progresspreference") {
+		command = prepend + command
+	}
+
+	utf16Command := utf16.Encode([]rune(command))
+	bytesCommand := make([]byte, len(utf16Command)*2)
+	for i, value := range utf16Command {
+		bytesCommand[i*2] = byte(value)
+		bytesCommand[i*2+1] = byte(value >> 8)
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(bytesCommand)
+
+	return fmt.Sprintf("powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand %s", encoded)
 }
 
 // RunFireAndForgetScript executes a script without waiting for or processing results
@@ -203,18 +318,7 @@ func (c *ClientConfig) RunScriptWithResult(ctx context.Context, script *template
 		return err
 	}
 
-	stdout = strings.TrimSpace(stdout)
-
-	if exitCode != 0 {
-		return fmt.Errorf("exitStatus:%d\nstdOut:%s\nstdErr:%s\ncommand:%s", exitCode, stdout, stderr, command)
-	}
-
-	err = json.Unmarshal([]byte(stdout), &result)
-	if err != nil {
-		return fmt.Errorf("failed to unmarshal JSON result - exitStatus:%d\nstdOut:%s\nstdErr:%s\nerr:%s\ncommand:%s", exitCode, stdout, stderr, err, command)
-	}
-
-	return nil
+	return commandresult.DecodeJSON(exitCode, stdout, stderr, command, result)
 }
 
 // UploadFile uploads a local file to the remote system
@@ -668,5 +772,30 @@ func (c *ClientConfig) DeleteFileOrDirectory(ctx context.Context, remotePath str
 	}
 
 	log.Printf("[DEBUG] Successfully deleted: %s", remotePath)
+	return nil
+}
+
+// ValidatePowerShellShell verifies that PowerShell is available as the default shell
+// by executing a simple PowerShell command. Returns an error if the shell is not
+// configured to PowerShell.
+func (c *ClientConfig) ValidatePowerShellShell(ctx context.Context) error {
+	if !c.IsWindows {
+		return nil
+	}
+
+	stdout, stderr, exitCode, err := c.runCommand(ctx, "(Get-Host).Version.ToString()")
+	if err != nil {
+		return fmt.Errorf("failed to validate PowerShell shell: %w", err)
+	}
+
+	if exitCode != 0 {
+		return fmt.Errorf("PowerShell shell validation failed with exit code %d: %s", exitCode, stderr)
+	}
+
+	if strings.TrimSpace(stdout) == "" {
+		return fmt.Errorf("PowerShell shell validation failed: empty output from PowerShell command. Ensure the OpenSSH DefaultShell is set to PowerShell. See: https://learn.microsoft.com/en-us/windows-server/administration/OpenSSH/openssh-server-configuration#configuring-the-default-shell-for-openssh-in-windows")
+	}
+
+	log.Printf("[DEBUG] PowerShell shell validation successful: %s", strings.TrimSpace(stdout))
 	return nil
 }

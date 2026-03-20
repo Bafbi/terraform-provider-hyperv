@@ -2,11 +2,13 @@ package ssh_helper
 
 import (
 	"context"
+	"encoding/base64"
 	"os"
 	"strings"
 	"testing"
 	"text/template"
 	"time"
+	"unicode/utf16"
 )
 
 // TestClientConfig_Basic tests basic SSH client configuration
@@ -364,4 +366,289 @@ func fireAndForgetTemplate(isWindows bool) string {
 		mkdir -p /tmp/hyperv-test-{{.TestID}}
 		echo "Test content" > /tmp/hyperv-test-{{.TestID}}/test.txt
 	`
+}
+
+func TestWrapPowerShellEncodedCommand(t *testing.T) {
+	t.Parallel()
+
+	command := "$ErrorActionPreference = 'Stop'\nWrite-Output '{\"ok\":true}'"
+	wrapped := wrapPowerShellEncodedCommand(command)
+
+	prefix := "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "
+	if !strings.HasPrefix(wrapped, prefix) {
+		t.Fatalf("expected command prefix %q, got %q", prefix, wrapped)
+	}
+
+	encoded := strings.TrimPrefix(wrapped, prefix)
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("failed to decode base64: %v", err)
+	}
+
+	if len(decoded)%2 != 0 {
+		t.Fatalf("expected UTF-16LE byte sequence, got odd length %d", len(decoded))
+	}
+
+	utf16Data := make([]uint16, len(decoded)/2)
+	for i := 0; i < len(utf16Data); i++ {
+		utf16Data[i] = uint16(decoded[i*2]) | uint16(decoded[i*2+1])<<8
+	}
+
+	expectedCommand := "if (Test-Path variable:global:ProgressPreference) { $ProgressPreference = 'SilentlyContinue' }; " + command
+	if got := string(utf16.Decode(utf16Data)); got != expectedCommand {
+		t.Fatalf("expected decoded command %q, got %q", expectedCommand, got)
+	}
+}
+
+func TestWrapPowerShellEncodedCommandAlreadyHasProgressPreference(t *testing.T) {
+	t.Parallel()
+
+	command := "$ProgressPreference = 'SilentlyContinue'\n$ErrorActionPreference = 'Stop'\nWrite-Output 'test'"
+	wrapped := wrapPowerShellEncodedCommand(command)
+
+	prefix := "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "
+	if !strings.HasPrefix(wrapped, prefix) {
+		t.Fatalf("expected command prefix %q, got %q", prefix, wrapped)
+	}
+
+	encoded := strings.TrimPrefix(wrapped, prefix)
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("failed to decode base64: %v", err)
+	}
+
+	utf16Data := make([]uint16, len(decoded)/2)
+	for i := 0; i < len(utf16Data); i++ {
+		utf16Data[i] = uint16(decoded[i*2]) | uint16(decoded[i*2+1])<<8
+	}
+
+	if got := string(utf16.Decode(utf16Data)); got != command {
+		t.Fatalf("expected original command unchanged %q, got %q", command, got)
+	}
+}
+
+func TestWrapPowerShellEncodedCommandCaseInsensitiveProgressPreference(t *testing.T) {
+	t.Parallel()
+
+	command := "$progresspreference = 'SilentlyContinue'\nWrite-Output 'test'"
+	wrapped := wrapPowerShellEncodedCommand(command)
+
+	prefix := "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "
+	if !strings.HasPrefix(wrapped, prefix) {
+		t.Fatalf("expected command prefix %q, got %q", prefix, wrapped)
+	}
+
+	encoded := strings.TrimPrefix(wrapped, prefix)
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("failed to decode base64: %v", err)
+	}
+
+	utf16Data := make([]uint16, len(decoded)/2)
+	for i := 0; i < len(utf16Data); i++ {
+		utf16Data[i] = uint16(decoded[i*2]) | uint16(decoded[i*2+1])<<8
+	}
+
+	if got := string(utf16.Decode(utf16Data)); got != command {
+		t.Fatalf("expected original command unchanged (lowercase progresspreference should be detected) %q, got %q", command, got)
+	}
+}
+
+func TestExtractLeadingCommandTokenUnclosedQuote(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		command  string
+		expected string
+	}{
+		{
+			name:     "unclosed double quote returns up to first whitespace",
+			command:  `"C:\Prog Files\pwsh.exe -Command test`,
+			expected: `C:\Prog`,
+		},
+		{
+			name:     "unclosed single quote returns up to first whitespace",
+			command:  `'/path/to/pwsh' arg1 arg2`,
+			expected: `/path/to/pwsh`,
+		},
+		{
+			name:     "unclosed quote no whitespace returns remainder",
+			command:  `"unclosed`,
+			expected: `unclosed`,
+		},
+		{
+			name:     "closed quote followed by tab",
+			command:  `"/path/to/exe"` + "\t" + `arg1`,
+			expected: `/path/to/exe`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			token, ok, _ := extractLeadingCommandToken(tt.command)
+			if !ok {
+				t.Fatalf("expected ok=true, got ok=false")
+			}
+			if token != tt.expected {
+				t.Fatalf("expected token %q, got %q", tt.expected, token)
+			}
+		})
+	}
+}
+
+func TestExtractLeadingCommandTokenUnquotedToken(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		command  string
+		expected string
+	}{
+		{
+			name:     "unquoted token unchanged",
+			command:  `echo hello world`,
+			expected: `echo`,
+		},
+		{
+			name:     "double quoted token stripped",
+			command:  `"echo" hello world`,
+			expected: `echo`,
+		},
+		{
+			name:     "single quoted token stripped",
+			command:  `'echo' hello world`,
+			expected: `echo`,
+		},
+		{
+			name:     "token ending with quote preserved",
+			command:  `echo" hello world`,
+			expected: `echo"`,
+		},
+		{
+			name:     "token starting with quote handled by_quote_branch",
+			command:  `'echo hello world`,
+			expected: `echo`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			token, ok, _ := extractLeadingCommandToken(tt.command)
+			if !ok {
+				t.Fatalf("expected ok=true, got ok=false")
+			}
+			if token != tt.expected {
+				t.Fatalf("expected token %q, got %q", tt.expected, token)
+			}
+		})
+	}
+}
+
+func TestPrepareCommandWindowsWrapsPowerShell(t *testing.T) {
+	t.Parallel()
+
+	config := &ClientConfig{IsWindows: true}
+
+	prepared := config.prepareCommand("$x = 1\nWrite-Output $x")
+
+	if !strings.HasPrefix(prepared, "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ") {
+		t.Fatalf("expected encoded powershell command, got %q", prepared)
+	}
+}
+
+func TestPrepareCommandWindowsKeepsExplicitPowerShell(t *testing.T) {
+	t.Parallel()
+
+	config := &ClientConfig{IsWindows: true}
+	explicit := `powershell -Command "Write-Output 'ok'"`
+
+	prepared := config.prepareCommand(explicit)
+
+	if prepared != explicit {
+		t.Fatalf("expected explicit powershell command unchanged, got %q", prepared)
+	}
+}
+
+func TestPrepareCommandWindowsWrapsQuotedPwshPath(t *testing.T) {
+	t.Parallel()
+
+	config := &ClientConfig{IsWindows: true}
+	explicit := `"C:\Program Files\PowerShell\7\pwsh.exe" -Command "Write-Output 'ok'"`
+
+	prepared := config.prepareCommand(explicit)
+
+	if strings.HasPrefix(prepared, "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ") {
+		return
+	}
+	t.Fatalf("expected quoted pwsh path to be wrapped, got %q", prepared)
+}
+
+func TestPrepareCommandWindowsWrapsCallOperatorQuotedPwshPath(t *testing.T) {
+	t.Parallel()
+
+	config := &ClientConfig{IsWindows: true}
+	explicit := `& "C:\Program Files\PowerShell\7\pwsh.exe" -Command "Write-Output 'ok'"`
+
+	prepared := config.prepareCommand(explicit)
+
+	if strings.HasPrefix(prepared, "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ") {
+		return
+	}
+	t.Fatalf("expected call-operator quoted pwsh path to be wrapped, got %q", prepared)
+}
+
+func TestPrepareCommandNonWindowsPassthrough(t *testing.T) {
+	t.Parallel()
+
+	config := &ClientConfig{IsWindows: false}
+	command := "echo 'hello world'"
+
+	prepared := config.prepareCommand(command)
+
+	if prepared != command {
+		t.Fatalf("expected non-Windows command unchanged, got %q", prepared)
+	}
+}
+
+func TestPrepareCommandWindowsWithVars(t *testing.T) {
+	t.Parallel()
+
+	config := &ClientConfig{
+		IsWindows: true,
+		Vars:      "$MYVAR = 'test'",
+	}
+	command := "Write-Output 'hello'"
+
+	prepared := config.prepareCommand(command)
+
+	prefix := "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand "
+	if !strings.HasPrefix(prepared, prefix) {
+		t.Fatalf("expected encoded powershell command, got %q", prepared)
+	}
+
+	encoded := strings.TrimPrefix(prepared, prefix)
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		t.Fatalf("failed to decode base64: %v", err)
+	}
+
+	if len(decoded)%2 != 0 {
+		t.Fatalf("expected UTF-16LE byte sequence, got odd length %d", len(decoded))
+	}
+
+	utf16Data := make([]uint16, len(decoded)/2)
+	for i := 0; i < len(utf16Data); i++ {
+		utf16Data[i] = uint16(decoded[i*2]) | uint16(decoded[i*2+1])<<8
+	}
+
+	decodedStr := string(utf16.Decode(utf16Data))
+	if !strings.Contains(decodedStr, "$MYVAR = 'test'") {
+		t.Fatalf("expected Vars to be included in decoded command, got %q", decodedStr)
+	}
+	if !strings.Contains(decodedStr, "Write-Output 'hello'") {
+		t.Fatalf("expected original command to be included in decoded command, got %q", decodedStr)
+	}
 }

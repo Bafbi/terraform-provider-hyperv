@@ -166,3 +166,5 @@ dev/tst.tf
 
 # btca local data
 .btca/
+
+terraform.log
