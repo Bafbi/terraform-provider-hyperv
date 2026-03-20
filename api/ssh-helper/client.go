@@ -189,8 +189,12 @@ func isPowerShellCommandInvocation(command string) bool {
 		return false
 	}
 
-	commandName, ok := extractLeadingCommandToken(trimmed)
+	commandName, ok, wasQuoted := extractLeadingCommandToken(trimmed)
 	if !ok {
+		return false
+	}
+
+	if wasQuoted {
 		return false
 	}
 
@@ -211,16 +215,16 @@ func isPowerShellCommandInvocation(command string) bool {
 	return false
 }
 
-func extractLeadingCommandToken(command string) (string, bool) {
+func extractLeadingCommandToken(command string) (string, bool, bool) {
 	trimmed := strings.TrimSpace(command)
 	if trimmed == "" {
-		return "", false
+		return "", false, false
 	}
 
 	if strings.HasPrefix(trimmed, "&") {
 		trimmed = strings.TrimSpace(strings.TrimPrefix(trimmed, "&"))
 		if trimmed == "" {
-			return "", false
+			return "", false, false
 		}
 	}
 
@@ -228,21 +232,21 @@ func extractLeadingCommandToken(command string) (string, bool) {
 		quote := trimmed[0]
 		for i := 1; i < len(trimmed); i++ {
 			if trimmed[i] == quote {
-				return trimmed[1:i], true
+				return trimmed[1:i], true, true
 			}
 		}
 
 		s := trimmed[1:]
 		idx := strings.IndexFunc(s, func(r rune) bool { return r == ' ' || r == '\t' || r == '\n' || r == '\r' })
 		if idx == -1 {
-			return s, true
+			return s, true, true
 		}
-		return s[:idx], true
+		return s[:idx], true, true
 	}
 
 	parts := strings.Fields(trimmed)
 	if len(parts) == 0 {
-		return "", false
+		return "", false, false
 	}
 
 	token := parts[0]
@@ -252,7 +256,7 @@ func extractLeadingCommandToken(command string) (string, bool) {
 		}
 	}
 
-	return token, true
+	return token, true, false
 }
 
 func wrapPowerShellEncodedCommand(command string) string {

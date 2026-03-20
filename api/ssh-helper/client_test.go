@@ -487,7 +487,7 @@ func TestExtractLeadingCommandTokenUnclosedQuote(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			token, ok := extractLeadingCommandToken(tt.command)
+			token, ok, _ := extractLeadingCommandToken(tt.command)
 			if !ok {
 				t.Fatalf("expected ok=true, got ok=false")
 			}
@@ -536,7 +536,7 @@ func TestExtractLeadingCommandTokenUnquotedToken(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			token, ok := extractLeadingCommandToken(tt.command)
+			token, ok, _ := extractLeadingCommandToken(tt.command)
 			if !ok {
 				t.Fatalf("expected ok=true, got ok=false")
 			}
@@ -572,7 +572,7 @@ func TestPrepareCommandWindowsKeepsExplicitPowerShell(t *testing.T) {
 	}
 }
 
-func TestPrepareCommandWindowsKeepsQuotedPwshPath(t *testing.T) {
+func TestPrepareCommandWindowsWrapsQuotedPwshPath(t *testing.T) {
 	t.Parallel()
 
 	config := &ClientConfig{IsWindows: true}
@@ -580,12 +580,13 @@ func TestPrepareCommandWindowsKeepsQuotedPwshPath(t *testing.T) {
 
 	prepared := config.prepareCommand(explicit)
 
-	if prepared != explicit {
-		t.Fatalf("expected quoted pwsh path command unchanged, got %q", prepared)
+	if strings.HasPrefix(prepared, "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ") {
+		return
 	}
+	t.Fatalf("expected quoted pwsh path to be wrapped, got %q", prepared)
 }
 
-func TestPrepareCommandWindowsKeepsCallOperatorQuotedPwshPath(t *testing.T) {
+func TestPrepareCommandWindowsWrapsCallOperatorQuotedPwshPath(t *testing.T) {
 	t.Parallel()
 
 	config := &ClientConfig{IsWindows: true}
@@ -593,9 +594,10 @@ func TestPrepareCommandWindowsKeepsCallOperatorQuotedPwshPath(t *testing.T) {
 
 	prepared := config.prepareCommand(explicit)
 
-	if prepared != explicit {
-		t.Fatalf("expected call-operator quoted pwsh path command unchanged, got %q", prepared)
+	if strings.HasPrefix(prepared, "powershell -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ") {
+		return
 	}
+	t.Fatalf("expected call-operator quoted pwsh path to be wrapped, got %q", prepared)
 }
 
 func TestPrepareCommandNonWindowsPassthrough(t *testing.T) {
