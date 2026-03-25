@@ -488,11 +488,7 @@ if ($minimumBandwidthMode -eq [Microsoft.HyperV.PowerShell.VMSwitchBandwidthMode
 }
 $SetVmNetworkAdapterArgs.MandatoryFeatureId=$vmNetworkAdapter.MandatoryFeatureId
 if ($vmNetworkAdaptersObject.ResourcePoolName -ne $vmNetworkAdapter.ResourcePoolName) {
-	if ($vmNetworkAdapter.ResourcePoolName) {
-		$SetVmNetworkAdapterArgs.ResourcePoolName=$vmNetworkAdapter.ResourcePoolName
-	} else {
-		$null = $vmNetworkAdaptersObject | Disconnect-VMNetworkAdapter
-	}
+	$SetVmNetworkAdapterArgs.ResourcePoolName=$vmNetworkAdapter.ResourcePoolName
 }
 
 $SetVmNetworkAdapterArgs.TestReplicaPoolName=$vmNetworkAdapter.TestReplicaPoolName
