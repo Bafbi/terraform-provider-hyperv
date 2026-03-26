@@ -54,3 +54,15 @@ func PathDiffSuppressWithMachineName(k, old, newValue string, d *schema.Resource
 
 	return strings.EqualFold(oldNormalized, newNormalized)
 }
+
+func CaseInsensitiveDiffSuppress(k, old, newValue string, d *schema.ResourceData) bool {
+	return strings.EqualFold(old, newValue)
+}
+
+func ZeroUuidDiffSuppress(k, old, newValue string, d *schema.ResourceData) bool {
+	zeroUuid := "00000000-0000-0000-0000-000000000000"
+	if newValue == "" || strings.EqualFold(newValue, zeroUuid) {
+		return strings.EqualFold(old, zeroUuid) || old == ""
+	}
+	return strings.EqualFold(old, newValue)
+}

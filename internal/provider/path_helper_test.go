@@ -153,3 +153,127 @@ func TestPathDiffSuppressWithMachineName(t *testing.T) {
 		})
 	}
 }
+
+func TestCaseInsensitiveDiffSuppress(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		oldValue string
+		newValue string
+		want     bool
+	}{
+		{
+			name:     "same case",
+			oldValue: "On",
+			newValue: "On",
+			want:     true,
+		},
+		{
+			name:     "different case suppressed",
+			oldValue: "On",
+			newValue: "on",
+			want:     true,
+		},
+		{
+			name:     "different case suppressed reverse",
+			oldValue: "OFF",
+			newValue: "off",
+			want:     true,
+		},
+		{
+			name:     "different values not suppressed",
+			oldValue: "On",
+			newValue: "Off",
+			want:     false,
+		},
+		{
+			name:     "mixed case suppressed",
+			oldValue: "On",
+			newValue: "ON",
+			want:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := CaseInsensitiveDiffSuppress("field", tt.oldValue, tt.newValue, nil)
+			if got != tt.want {
+				t.Fatalf("CaseInsensitiveDiffSuppress(%q, %q) = %t, want %t", tt.oldValue, tt.newValue, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestZeroUuidDiffSuppress(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name     string
+		oldValue string
+		newValue string
+		want     bool
+	}{
+		{
+			name:     "same uuid",
+			oldValue: "12345678-1234-1234-1234-123456789012",
+			newValue: "12345678-1234-1234-1234-123456789012",
+			want:     true,
+		},
+		{
+			name:     "different uuids not suppressed",
+			oldValue: "12345678-1234-1234-1234-123456789012",
+			newValue: "87654321-4321-4321-4321-210987654321",
+			want:     false,
+		},
+		{
+			name:     "old zero uuid new empty suppressed",
+			oldValue: "00000000-0000-0000-0000-000000000000",
+			newValue: "",
+			want:     true,
+		},
+		{
+			name:     "old empty new zero uuid suppressed",
+			oldValue: "",
+			newValue: "00000000-0000-0000-0000-000000000000",
+			want:     true,
+		},
+		{
+			name:     "both zero uuid suppressed",
+			oldValue: "00000000-0000-0000-0000-000000000000",
+			newValue: "00000000-0000-0000-0000-000000000000",
+			want:     true,
+		},
+		{
+			name:     "old has value new empty not suppressed",
+			oldValue: "12345678-1234-1234-1234-123456789012",
+			newValue: "",
+			want:     false,
+		},
+		{
+			name:     "old zero uuid new has value not suppressed",
+			oldValue: "00000000-0000-0000-0000-000000000000",
+			newValue: "12345678-1234-1234-1234-123456789012",
+			want:     false,
+		},
+		{
+			name:     "case insensitive uuid suppressed",
+			oldValue: "ABCDEF12-3456-7890-abcd-ef1234567890",
+			newValue: "abcdef12-3456-7890-ABCD-EF1234567890",
+			want:     true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			got := ZeroUuidDiffSuppress("qos_policy_id", tt.oldValue, tt.newValue, nil)
+			if got != tt.want {
+				t.Fatalf("ZeroUuidDiffSuppress(%q, %q) = %t, want %t", tt.oldValue, tt.newValue, got, tt.want)
+			}
+		})
+	}
+}
