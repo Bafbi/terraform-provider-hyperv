@@ -260,8 +260,8 @@ func TestZeroUuidDiffSuppress(t *testing.T) {
 		},
 		{
 			name:     "case insensitive uuid suppressed",
-			oldValue: "00000000-0000-0000-0000-000000000000",
-			newValue: "00000000-0000-0000-0000-000000000000",
+			oldValue: "ABCDEF12-3456-7890-abcd-ef1234567890",
+			newValue: "abcdef12-3456-7890-ABCD-EF1234567890",
 			want:     true,
 		},
 	}
