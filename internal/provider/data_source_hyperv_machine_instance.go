@@ -162,19 +162,21 @@ func dataSourceHyperVMachineInstance() *schema.Resource {
 			},
 
 			"smart_paging_file_path": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Default:     `C:\ProgramData\Microsoft\Windows\Hyper-V`,
-				StateFunc:   PathStateFunc,
-				Description: "Specifies the folder in which the Smart Paging file is to be stored.",
+				Type:             schema.TypeString,
+				Optional:         true,
+				Default:          `C:\ProgramData\Microsoft\Windows\Hyper-V`,
+				DiffSuppressFunc: PathDiffSuppress,
+				StateFunc:        PathStateFunc,
+				Description:      "Specifies the folder in which the Smart Paging file is to be stored.",
 			},
 
 			"snapshot_file_location": {
-				Type:        schema.TypeString,
-				Optional:    true,
-				Default:     `C:\ProgramData\Microsoft\Windows\Hyper-V`,
-				StateFunc:   PathStateFunc,
-				Description: "Specifies the folder in which the virtual machine is to store its snapshot files.",
+				Type:             schema.TypeString,
+				Optional:         true,
+				Default:          `C:\ProgramData\Microsoft\Windows\Hyper-V`,
+				DiffSuppressFunc: PathDiffSuppress,
+				StateFunc:        PathStateFunc,
+				Description:      "Specifies the folder in which the virtual machine is to store its snapshot files.",
 			},
 
 			"static_memory": {
