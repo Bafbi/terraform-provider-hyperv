@@ -14,7 +14,6 @@ func TestDataSourceHyperVMachineInstanceSchema_PathFieldsDiffSuppressFunc(t *tes
 
 	fields := []string{"smart_paging_file_path", "snapshot_file_location"}
 	for _, field := range fields {
-		field := field
 		t.Run(field, func(t *testing.T) {
 			t.Parallel()
 
@@ -78,7 +77,6 @@ func TestDataSourceHyperVMachineInstanceSchema_SmartPagingFilePathDiffSuppress(t
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -139,7 +137,6 @@ func TestDataSourceHyperVMachineInstanceSchema_SnapshotFileLocationDiffSuppress(
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -160,7 +157,6 @@ func TestDataSourceHyperVMachineInstanceSchema_PathFieldsAlsoHaveStateFunc(t *te
 
 	fields := []string{"smart_paging_file_path", "snapshot_file_location"}
 	for _, field := range fields {
-		field := field
 		t.Run(field, func(t *testing.T) {
 			t.Parallel()
 
@@ -173,4 +169,4 @@ func TestDataSourceHyperVMachineInstanceSchema_PathFieldsAlsoHaveStateFunc(t *te
 			}
 		})
 	}
-}
+}
