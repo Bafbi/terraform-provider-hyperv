@@ -509,6 +509,7 @@ func resourceHyperVMachineInstance() *schema.Resource {
 							Optional:         true,
 							Default:          api.OnOffState_name[api.OnOffState_On],
 							ValidateDiagFunc: StringKeyInMap(api.OnOffState_value, true),
+							DiffSuppressFunc: CaseInsensitiveDiffSuppress,
 							Description:      "Specifies whether the virtual network adapter can be teamed with other network adapters connected to the same virtual switch. Valid values to use are `On`, `Off`.",
 						},
 						"not_monitored_in_cluster": {
@@ -534,6 +535,7 @@ func resourceHyperVMachineInstance() *schema.Resource {
 							Optional:         true,
 							Default:          api.OnOffState_name[api.OnOffState_Off],
 							ValidateDiagFunc: StringKeyInMap(api.OnOffState_value, true),
+							DiffSuppressFunc: CaseInsensitiveDiffSuppress,
 							Description:      "Specifies whether this adapter uses device naming. Valid values to use are `On`, `Off`.",
 						},
 						"fix_speed_10g": {
@@ -541,6 +543,7 @@ func resourceHyperVMachineInstance() *schema.Resource {
 							Optional:         true,
 							Default:          api.OnOffState_name[api.OnOffState_Off],
 							ValidateDiagFunc: StringKeyInMap(api.OnOffState_value, true),
+							DiffSuppressFunc: CaseInsensitiveDiffSuppress,
 							Description:      "Specifies whether the adapter uses fix speed of 10G. Valid values to use are `On`, `Off`.",
 						},
 						"packet_direct_num_procs": {
@@ -710,10 +713,11 @@ func resourceHyperVMachineInstance() *schema.Resource {
 							Description: "Specifies the minimum normalized I/O operations per second (IOPS) for the hard disk. Hyper-V calculates normalized IOPS as the total size of I/O per second divided by 8 KB. If maximum iops value is 0 then iops is ignored.",
 						},
 						"qos_policy_id": {
-							Type:        schema.TypeString,
-							Optional:    true,
-							Default:     "00000000-0000-0000-0000-000000000000",
-							Description: "Specifies the unique ID for a storage QoS policy that this cmdlet associates with the hard disk drive. If value is 00000000-0000-0000-0000-000000000000 then qos policy id is ignored.",
+							Type:             schema.TypeString,
+							Optional:         true,
+							Default:          "00000000-0000-0000-0000-000000000000",
+							DiffSuppressFunc: ZeroUuidDiffSuppress,
+							Description:      "Specifies the unique ID for a storage QoS policy that this cmdlet associates with the hard disk drive. If value is 00000000-0000-0000-0000-000000000000 then qos policy id is ignored.",
 						},
 						"override_cache_attributes": {
 							Type:             schema.TypeString,
